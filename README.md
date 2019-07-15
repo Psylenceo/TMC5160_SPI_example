@@ -7,5 +7,7 @@ current version 0.1.2
 Arduino example walking through all the settings and order of operation to set settings and registers of a TMC5160 using teemuatlut's TMCStepper library.
 
 -TMC5160-BOB is the PDF datasheet for the breakout board manufactured by trinamics and that was used for creating and testing this code
+
 -TMC5160_datasheet_rev_1.10 is the pdf datasheet for the TMC5160 itself.
+
 -TMC5160_calculations.xlsx is an excel file from trinamics to assist with the calculations of driver parameters.
