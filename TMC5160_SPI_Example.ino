@@ -30,7 +30,7 @@
 #include <TMCStepper.h>
 #include <TMCStepper_UTILITY.h>
 
-#define TMC5160_SPI_EXAMPLE_VERSION 0x000103  //v0.1.3
+#define TMC5160_SPI_EXAMPLE_VERSION 0x000104  //v0.1.4
 
 #define pi 3.1415926535           //Pi is used in calculating the drivers initial pwm gradient for autotuning the motor
 
@@ -155,7 +155,8 @@ uint32_t tstep_min = 1048575, //minimum tstep value to assist in velocity based 
 
 int autotune_optimized_up_cnt, //variable to count how many times the up autotune has resulted in the optimial value of pwm sum
     autotune_optimized_dn_cnt, //variable to count how many times the down autotune has resulted in optimal value of pwm sum
-    autotune_average_optimize_cnt;  //variable for when we try to optimize the pwm sum for both up and down.
+    autotune_average_optimize_cnt,  //variable for when we try to optimize the pwm sum for both up and down.
+    short_stall = 4;  //variable for tuning short circuit detection stall detect in stealth mode
 
 bool autotune_optimization_flag,    //this flag will go high once autotune optimization is complete or pwm_sum_tune is the lowest it can get for a given number auto tune loops
      stall_flag;  //flag for when motor is stalled
@@ -304,7 +305,7 @@ void setup() {
 
   /*Silent step and autotuning*/{
     /* stealth settings */ {
-      driver.en_pwm_mode(1);                                                  //no silent step
+      driver.en_pwm_mode(1);                                                  // silent step enable
       driver.TPWMTHRS(75);                                                    //65 decent point to avoid skips and mechanical load noise near top when and while moving down
       driver.pwm_lim(29);                                                    //sets the pwm voltae limit
       driver.pwm_autoscale(0);                                                //automaic current scaling
@@ -314,19 +315,30 @@ void setup() {
       //driver.freewheel(0);                                                   //0 hold current action
     }
 
+    /* Change short circuit detection level to super sensitive to act as stall detection during autotune and stealth chop */{
+      driver.s2vs_level(short_stall);   //set the low side short circuit detection to be over sensitive to in an attempt act as a stallguard during stealth mode
+    }
+
     Serial.println(F("Starting stealth chop autotune"));
     driver.pwm_autoscale(1);                                                //automaic current scaling
-    delay(360);
-    driver.XTARGET(100);
-    delay(200);
+    delay(360);   //delay for 2 full step cycles to allow settling
+    driver.XTARGET(100);  //move motor 100 micro steps
+    delay(200); //delay 1 full step cycle to get current measurement
     while (autotune_optimization_flag == 0) {
-      if (driver.position_reached() == 1) driver.XTARGET((200 / motor_mm_per_microstep));
-      stall_flag = 0;
+      if (driver.position_reached() == 1) driver.XTARGET((200 / motor_mm_per_microstep));   //if motor in position command a 200 mm move
+      stall_flag = 0;   //reset stall flag
       while (driver.position_reached() == 0) {
-        if(driver.stallguard()==1 && stall_flag == 0){
+        /*****
+         * softstop
+         * sg_stop
+         * low side overcurrent to detect stall s2vs_level
+         * s2ga or s2gb and s2vsa or s2vsb become set, to clear disable and enable driver
+         * 
+         */
+        
+        if( (driver.s2vsa() == 1 || driver.s2vsb() == 1) && stall_flag == 0){   
           stall_flag =1;
-          driver.XTARGET(driver.XACTUAL());
-          Serial.println(F("Motor stalled"));
+          Serial.println(F("Motor short circuit stalled"));
           break;
         }
         
@@ -336,6 +348,14 @@ void setup() {
         //use pwm sum to determine best speed for auto tuning, pwm sum needs to be as low as possible
         //add skip step detection as well. exit autotune on skipped step
       }
+
+      if( stall_flag ==1 ){
+        digitalWrite(drv_en, HIGH);  //disable in between tests to allow reseting of physical position if need be. And to allow changing of settings.
+        if(short_stall >= 4 && short_level <= 15) driver.s2vs_level(short_stall+1)
+        digitalWrite(drv_en, LOW);  //disable in between tests to allow reseting of physical position if need be. And to allow changing of settings.
+        stall_flag = 0;   //reset stall flag
+      }
+      
       //add temp measuring during pause between up and down motions
       if (driver.position_reached() == 1) {
         delay(500);
