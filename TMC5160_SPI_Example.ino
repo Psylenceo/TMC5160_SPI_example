@@ -30,7 +30,7 @@
 #include <TMCStepper.h>
 #include <TMCStepper_UTILITY.h>
 
-#define TMC5160_SPI_EXAMPLE_VERSION 0x000102  //v0.1.2
+#define TMC5160_SPI_EXAMPLE_VERSION 0x000103  //v0.1.3
 
 #define pi 3.1415926535           //Pi is used in calculating the drivers initial pwm gradient for autotuning the motor
 
@@ -144,21 +144,21 @@ float  nominal_amps = ( ((motor_milliamps * motor_voltage) / supply_voltage) * 1
        really_small_number = ( (1 / drv_chop_freq) ),         //testing to driv_toff to calc the number
        microsteps_per_rev = 51200/*( (motor_counts *  drv_microstep_res) )*/, //testing to get the micro steps per rev calced
        drv_pwm_grad = ( (cbemf * 2 * pi * ( (drv_clock * 1.46) / (supply_voltage * microsteps_per_rev))) ), //calculate the pwm gradient
-       drv_pwm_ofs = ( (374 * motor_resistance * (nominal_amps / 1000)) / supply_voltage),  calculate teh pwm offest
+       drv_pwm_ofs = ( (374 * motor_resistance * (nominal_amps / 1000)) / supply_voltage),  //calculate teh pwm offest
        driv_toff = ( 3/*really_small_number * drv_clock / 10(((1 / drv_chop_freq) * (drv_decay_percent / 100) * .5) * drv_clock - 12) / 32*/ ); //calculatethe toff of the motor, currently does not calculate value
 
 float pwm_sum_base, //base pwm sum value to be tested in autotune to find optimal set points
       pwm_sum_tune; //pwm sum value while in the loop for set point optimation
 
-long tstep_min = 1048575, //minimum tstep value to assist in velocity based mode change settings
-     tstep_max = 0; //max value while motor is running
+uint32_t tstep_min = 1048575, //minimum tstep value to assist in velocity based mode change settings
+         tstep_max = 0; //max value while motor is running
 
 int autotune_optimized_up_cnt, //variable to count how many times the up autotune has resulted in the optimial value of pwm sum
     autotune_optimized_dn_cnt, //variable to count how many times the down autotune has resulted in optimal value of pwm sum
     autotune_average_optimize_cnt;  //variable for when we try to optimize the pwm sum for both up and down.
 
 bool autotune_optimization_flag,    //this flag will go high once autotune optimization is complete or pwm_sum_tune is the lowest it can get for a given number auto tune loops
-     stall_flag,  //flag for when motor is stalled
+     stall_flag;  //flag for when motor is stalled
       
 
 /***********************************************************
@@ -237,7 +237,7 @@ void setup() {
     driver.pwm_freq(0b01);                                                  //pwm at 35.1kHz
 
     driver.sgt(0);                                            //stallguard sensitivity
-    driver.sfilt(1);                                          //stallguard filtering on
+    driver.sfilt(0);                                          //stallguard filtering on
     driver.sg_stop(1);                                        //stallguard event stop enabled
   }
 
@@ -323,15 +323,16 @@ void setup() {
       if (driver.position_reached() == 1) driver.XTARGET((200 / motor_mm_per_microstep));
       stall_flag = 0;
       while (driver.position_reached() == 0) {
-        if(z_axis.stallguard()==1 && stall_flag == 0){
+        if(driver.stallguard()==1 && stall_flag == 0){
           stall_flag =1;
-          z_axis.XTARGET(z_axis.XACTUAL());
+          driver.XTARGET(driver.XACTUAL());
           Serial.println(F("Motor stalled"));
           break;
         }
         
-        if(drive.TSTEP > tstep_max) tstep_max = drive.TSTEP;
-        if(drive.TSTEP < tstep_min) tstep_min = drive.TSTEP;
+        if( driver.TSTEP() > tstep_max ) tstep_max = driver.TSTEP();
+        if( driver.TSTEP() < tstep_min ) tstep_min = driver.TSTEP();
+        
         //use pwm sum to determine best speed for auto tuning, pwm sum needs to be as low as possible
         //add skip step detection as well. exit autotune on skipped step
       }
@@ -341,9 +342,9 @@ void setup() {
         driver.XTARGET(0);
         stall_flag = 0;
       while (driver.position_reached() == 0) {
-        if(z_axis.stallguard()==1 && stall_flag == 0){
+        if(driver.stallguard()==1 && stall_flag == 0){
           stall_flag =1;
-          z_axis.XTARGET(z_axis.XACTUAL());
+          driver.XTARGET(driver.XACTUAL());
           Serial.println(F("Motor stalled"));
           break;
         }
@@ -389,7 +390,7 @@ void loop() {
 void base_calc_values(void) {
   Serial.print(F("Supply voltage set to -> "));
   Serial.println(supply_voltage);
-  Serial.print(F("Motor rated amps -> "));
+  Serial.print(F("Motor rated milliamps -> "));
   Serial.println(motor_milliamps);
   Serial.print(F("Motor rated volts -> "));
   Serial.println(motor_voltage);
