@@ -27,6 +27,7 @@
     with a chip identifier if statement so that at compile time it will only
     compile what is needed and can fit on the 328P.
  *  *********************************************************************/
+#include <Arduino.h>
 #include <TMCStepper.h>
 #include <TMCStepper_UTILITY.h>
 
