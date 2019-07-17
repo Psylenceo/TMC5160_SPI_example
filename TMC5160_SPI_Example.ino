@@ -41,14 +41,14 @@
  *****************************************************/
 /* If using arduino mega*/
 #define sck      52     //SPI clock
-#define mosi     51     //master transmit out slave recieve input
-#define miso     50     //master recieve input slave transmit out
+#define mosi     51     //master transmit out slave receive input
+#define miso     50     //master receive input slave transmit out
 #define ss       53     //chip select
 
 /*if using arduino uno, or nano*/
 /*#define sck      13     //SPI clock
-  #define mosi     11     //master transmit out slave recieve input
-  #define miso     12     //master recieve input slave transmit out
+  #define mosi     11     //master transmit out slave receive input
+  #define miso     12     //master receive input slave transmit out
   #define ss       10     //chip select
 */
 
@@ -118,7 +118,7 @@
 #define motor_mm_per_microstep .00015703125 //Change this value to match your motor!!!!
 
 /************************************************************
-   Now we need to calculate some important values for intial
+   Now we need to calculate some important values for inital
    register settings in the driver. If you want to adjust any
    of hte register settings after initialization. You can change them
    below in the setup section.
@@ -131,7 +131,7 @@
    This is then used to set the Irun and Ihold registers along with tuning of the chopper modes.
 
    Next we calculate the back emf constant of the motor which is used to calculate the
-   initial gradient for stealth chopp to ramp up at.
+   initial gradient for stealth chop to ramp up at.
 
    Then we calculate the PWM gradient, which will give the autotune a starting point.
 
@@ -149,12 +149,12 @@ float  nominal_amps = ( ((motor_milliamps * motor_voltage) / supply_voltage) * 1
        driv_toff = ( 3/*really_small_number * drv_clock / 10(((1 / drv_chop_freq) * (drv_decay_percent / 100) * .5) * drv_clock - 12) / 32*/ ); //calculatethe toff of the motor, currently does not calculate value
 
 float pwm_sum_base, //base pwm sum value to be tested in autotune to find optimal set points
-      pwm_sum_tune; //pwm sum value while in the loop for set point optimation
+      pwm_sum_tune; //pwm sum value while in the loop for set point optimization
 
 uint32_t tstep_min = 1048575, //minimum tstep value to assist in velocity based mode change settings
          tstep_max = 0; //max value while motor is running
 
-int autotune_optimized_up_cnt, //variable to count how many times the up autotune has resulted in the optimial value of pwm sum
+int autotune_optimized_up_cnt, //variable to count how many times the up autotune has resulted in the optimal value of pwm sum
     autotune_optimized_dn_cnt, //variable to count how many times the down autotune has resulted in optimal value of pwm sum
     autotune_average_optimize_cnt,  //variable for when we try to optimize the pwm sum for both up and down.
     short_stall = 4;  //variable for tuning short circuit detection stall detect in stealth mode
@@ -183,7 +183,7 @@ TMC5160Stepper driver = TMC5160Stepper(ss, sense_resistor); //we are also tellin
    Prototypes of functions.
 
    This makes this area much smaller, because it lets us put
-   the function and everything insde the function below the main loop
+   the function and everything inside the function below the main loop
  ***********************************************************/
 
 void read_registers(void);   //this is just a prototype, but hte function will call up all the readable registers from the driver
@@ -194,7 +194,7 @@ void setup() {
     Serial.begin(115200);   //serial com at 115200 baud
     while (!Serial);        //wait for the arduino to detect an open com port
     Serial.println("Start..."); //com port is open, send 1st mesage
-    Serial.println(""); //add a new line to seperate information
+    Serial.println(""); //add a new line to separate information
     base_calc_values(); //readout the define calculations
   }
 
@@ -211,7 +211,7 @@ void setup() {
     driver.begin();                                                         // start the tmc library
 
     read_registers(); //Read all TMC5160 readable registers. Should read initial power presets or last configuration.
-    Serial.println(""); //add a new line to seperate information
+    Serial.println(""); //add a new line to separate information
 
     driver.rms_current(nominal_amps, 1);                                     //set Irun and Ihold for the drive
 
@@ -252,7 +252,7 @@ void setup() {
     and what kind of units your serial commands ae going to be
     RPM (rotations per minute) use rpm(####);
     RPS (rotations per second) use rps(####);
-    mm/s (milimeters per second) use mm_per_sec(####);
+    mm/s (millimeters per second) use mm_per_sec(####);
     or just plain old counts where a command of 51200, will get you
     one full revolution on a 1.8 degree stepper motor.
 
@@ -261,7 +261,7 @@ void setup() {
     then send a counts command of 1,000. Remeasure from you reference point to the
     fixed surface. Then subtract your starting distance from your distance at
     1,000 counts and divide this distance by 1,000. This will get you how many
-    milimeters per microstep. This value will then need to be added in the define
+    millimeters per microstep. This value will then need to be added in the define
     near the top of this code
   *************************************************************/
 
@@ -283,7 +283,7 @@ void setup() {
   /*First motion*/{
     /*Now that all the minimum settings to get a TMC5160 are set, well read all the registers again, to check settings*/
     read_registers(); //Read all TMC5160 readable registers. Should read initial power presets or last configuration.
-    Serial.println(""); //add a new line to seperate information
+    Serial.println(""); //add a new line to separate information
 
     /*Perform zero crossing calibration. No idea what it does, I just do it act as a starting point.*/
     digitalWrite(drv_en, HIGH);  //disable the driver to clear short circuit fault
@@ -295,7 +295,7 @@ void setup() {
 
     /*Read all registers again see that GSTAT has cleared, and to make sure some of the other faults are cleared as well.*/
     read_registers(); //Read all TMC5160 readable registers. Should read initial power presets or last configuration.
-    Serial.println(""); //add a new line to seperate information
+    Serial.println(""); //add a new line to separate information
 
     /*Now lets start the first actual move to see if everything worked, and to hear what the stepper sounds like.*/
     if (driver.position_reached() == 1) driver.XTARGET((100 / motor_mm_per_microstep));
@@ -308,9 +308,9 @@ void setup() {
     /* stealth settings */ {
       driver.en_pwm_mode(1);                                                  // silent step enable
       driver.TPWMTHRS(75);                                                    //65 decent point to avoid skips and mechanical load noise near top when and while moving down
-      driver.pwm_lim(29);                                                    //sets the pwm voltae limit
-      driver.pwm_autoscale(0);                                                //automaic current scaling
-      driver.pwm_autograd(0);                                                 //automaic tuning
+      driver.pwm_lim(29);                                                    //sets the pwm voltage limit
+      driver.pwm_autoscale(0);                                                //automatic current scaling
+      driver.pwm_autograd(0);                                                 //automatic tuning
       driver.pwm_ofs(drv_pwm_ofs);                                               //user calculated pwm amplitude offset
       driver.pwm_grad(drv_pwm_grad);                                            //velocity pwm gradual
       //driver.freewheel(0);                                                   //0 hold current action
@@ -321,7 +321,7 @@ void setup() {
     }
 
     Serial.println(F("Starting stealth chop autotune"));
-    driver.pwm_autoscale(1);                                                //automaic current scaling
+    driver.pwm_autoscale(1);                                                //automatic current scaling
     delay(360);   //delay for 2 full step cycles to allow settling
     driver.XTARGET(100);  //move motor 100 micro steps
     delay(200); //delay 1 full step cycle to get current measurement
@@ -369,7 +369,7 @@ void setup() {
           Serial.println(F("Motor stalled"));
           break;
         }
-          //include tstep reporting to tune for when best to impliment stealth and spread cycle
+          //include tstep reporting to tune for when best to implement stealth and spread cycle
           //use pwm sum to determine best speed for auto tuning, pwm sum needs to be as low as possible
           //add skip step detection as well. exit autotune on skipped step988880
         }
@@ -542,7 +542,7 @@ void read_registers(void)
       Serial.print(F("SW_MODE ->"));
       Serial.println(driver.SW_MODE(), BIN);                                                      //read sw mode register, display as binary
       if (driver.en_softstop() == 1)Serial.println(F("--soft stop enabled. uses deccel ramp to stop and act as a limit switch"));
-      if (driver.en_softstop() == 0)Serial.println(F("--soft stop disabled. uses physical limit switchs"));
+      if (driver.en_softstop() == 0)Serial.println(F("--soft stop disabled. uses physical limit switches"));
       if (driver.sg_stop() == 0)Serial.println(F("--stop by stallguard disabled"));
       if (driver.sg_stop() == 1)Serial.println(F("--stop by stallguard enabled"));
       if (driver.en_latch_encoder() == 1)Serial.println(F("--limit switch event stores encoder position into ENC_LATCH"));
@@ -570,13 +570,13 @@ void read_registers(void)
       if (driver.position_reached() == 1)Serial.println(F("--position is reached"));
       if (driver.velocity_reached() == 1)Serial.println(F("--velocity reached"));
       if (driver.event_pos_reached() == 1)Serial.println(F("--target position reached"));
-      if (driver.event_stop_sg() == 1)Serial.println(F("--stallguard event occured"));
-      if (driver.event_stop_r() == 1)Serial.println(F("--right limit switch event occured"));
-      if (driver.event_stop_l() == 1)Serial.println(F("--left limit switch event occured"));
+      if (driver.event_stop_sg() == 1)Serial.println(F("--stallguard event occurred"));
+      if (driver.event_stop_r() == 1)Serial.println(F("--right limit switch event occurred"));
+      if (driver.event_stop_l() == 1)Serial.println(F("--left limit switch event occurred"));
       if (driver.status_latch_r() == 0)Serial.println(F("--right latch not ready"));
       if (driver.status_latch_r() == 1)Serial.println(F("--right latch ready"));
-      if (driver.status_latch_l() == 0)Serial.println(F("--leftt latch not ready"));
-      if (driver.status_latch_l() == 1)Serial.println(F("--leftt latch ready"));
+      if (driver.status_latch_l() == 0)Serial.println(F("--left latch not ready"));
+      if (driver.status_latch_l() == 1)Serial.println(F("--left latch ready"));
       if (driver.status_stop_r() == 0)Serial.println(F("--refR not active"));
       if (driver.status_stop_r() == 1)Serial.println(F("--refR active"));
       if (driver.status_stop_l() == 0)Serial.println(F("--refL not active"));
@@ -586,7 +586,7 @@ void read_registers(void)
     Serial.println(F(""));
     Serial.print(F("XLATCH ->"));
     Serial.println(driver.XLATCH(), DEC);
-  }//display position x latch occured
+  }//display position x latch occurred
 
   /* Encoder registers */ {
     /*read ENCMODE */{
@@ -629,7 +629,7 @@ void read_registers(void)
     /*read MSCURACT phase A */
     Serial.print(F("MSCURACT CUR_A ->"));
     Serial.println(driver.cur_a(), DEC);                                                        //current of phase a
-    /* read MSCURACT pahse B */
+    /* read MSCURACT phase B */
     Serial.print(F("MSCURACT CUR_B ->"));
     Serial.println(driver.cur_b(), DEC);                                                        //current of phase b
   }
@@ -652,7 +652,7 @@ void read_registers(void)
       Serial.print(F("--Passive fast decay time ->"));   // compiler errors out
       Serial.println(driver.tpfd(), DEC);
       if (driver.vhighchm() == 0)Serial.println(F("--high velocity chopper disabled"));
-      if (driver.vhighchm() == 1)Serial.println(F("--high velocity chopper enabled.  triggers whne VHIGH is exceeded"));
+      if (driver.vhighchm() == 1)Serial.println(F("--high velocity chopper enabled.  triggers when VHIGH is exceeded"));
       if (driver.vhighfs() == 0)Serial.println(F("--high velocity fullstep disabled"));
       if (driver.vhighfs() == 1)Serial.println(F("--high velocity fullstep enabled. triggers when VHIGH is exceeeded"));
       Serial.print(F("--PWM blanking time ->"));
@@ -675,7 +675,7 @@ void read_registers(void)
       Serial.print(F("COOLCONF ->"));
       Serial.println(driver.COOLCONF(), BIN);
       if (driver.sfilt() == 0)Serial.println(F("--standard stallguard filter timing"));
-      if (driver.sfilt() == 1)Serial.println(F("--stallguard time filterd to measure every 4 full steps"));
+      if (driver.sfilt() == 1)Serial.println(F("--stallguard time filtered to measure every 4 full steps"));
       Serial.print(F("--Stallguard threshold ->"));
       Serial.println(driver.sgt(), DEC);                                                          //display stallguard threshold setting
       Serial.print(F("--current step down speed ->"));
