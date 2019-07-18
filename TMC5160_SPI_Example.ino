@@ -337,11 +337,11 @@ void setup() {
          * 
          */
         
-        if( (driver.s2vsa() == 1 || driver.s2vsb() == 1) && stall_flag == 0){   
+        /*if( (driver.s2vsa() == 1 || driver.s2vsb() == 1) && stall_flag == 0){   
           stall_flag =1;
           Serial.println(F("Motor short circuit stalled"));
           break;
-        }
+        }*/
         
         if( driver.TSTEP() > tstep_max ) tstep_max = driver.TSTEP();
         if( driver.TSTEP() < tstep_min ) tstep_min = driver.TSTEP();
@@ -352,7 +352,7 @@ void setup() {
 
       if( stall_flag ==1 ){
         digitalWrite(drv_en, HIGH);  //disable in between tests to allow reseting of physical position if need be. And to allow changing of settings.
-        if(short_stall >= 4 && short_level <= 15) driver.s2vs_level(short_stall+1)
+        if(short_stall >= 4 && short_stall <= 15) driver.s2vs_level(short_stall+1);
         digitalWrite(drv_en, LOW);  //disable in between tests to allow reseting of physical position if need be. And to allow changing of settings.
         stall_flag = 0;   //reset stall flag
       }
