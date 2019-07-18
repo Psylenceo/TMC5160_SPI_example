@@ -93,7 +93,7 @@
  ***********************************************************/
 #define drv_clock 12000000    //using internal clock, tie the clk pin low. If using a different freq, change this value to match
 #define drv_chop_freq 35100   //drivers chop frequency set by pwm_freq and based on clk frequency. Change to match.
-#define drv_decay_percent 70  //percentage of chopper standstill cycle time for lower power dissapation and upper frequency limit
+#define drv_decay_percent 70  //percentage of chopper standstill cycle time for lower power dissipation and upper frequency limit
 #define drv_microstep_res 256 //number of micro steps per full step. 
 
 /***************************************************************
@@ -429,7 +429,7 @@ void base_calc_values(void) {
   Serial.println(drv_pwm_grad);
   Serial.print(F("Calculated initial PWM offset -> "));
   Serial.println(drv_pwm_ofs);
-  Serial.print(F("Calculated PMW off time intializer -> "));
+  Serial.print(F("Calculated PMW off time initializer -> "));
   Serial.println(driv_toff);
   Serial.print(F("Drive PWM_SCALE_SUM calculation -> "));
   Serial.println( (drv_pwm_ofs + drv_pwm_grad * 256 * (drv_chop_freq / drv_clock)) );
