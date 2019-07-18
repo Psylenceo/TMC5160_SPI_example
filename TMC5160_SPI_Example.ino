@@ -463,8 +463,7 @@ void base_calc_values(void) {
 //end of base calc
 
 /* Read registers is for accessing all registers on the drive and displaying their information */
-void read_registers(void)
-{
+void read_registers(void){
   /* General Configuration registers */{
     /* read off GCONF */
       read_GCONF_address();
@@ -475,15 +474,8 @@ void read_registers(void)
     /*read off IOIN input status */
       read_IOIN_address();
 
-    /*read OFFSET_READ */{
-      Serial.println(F(""));
-      Serial.print(F("OFFSET_READ -> "));
-      Serial.println(driver.OFFSET_READ(), HEX);
-      Serial.print(F("--offset phase a -> "));
-      Serial.println(((driver.OFFSET_READ() & 0xFF00) >> 8), DEC);
-      Serial.print(F("--offset phase b -> "));
-      Serial.println((driver.OFFSET_READ() & 0x00FF), DEC);
-    }
+    /*read OFFSET_READ */
+      read_OFFSET_READ_address();
   }
 
   /* Velocity dependant driver feature control registers */{
@@ -515,51 +507,12 @@ void read_registers(void)
   }
 
   /* Ramp generator driver feature control registers */ {
-    /* read SW_MODE */{
-      Serial.println(F(""));
-      Serial.print(F("SW_MODE ->"));
-      Serial.println(driver.SW_MODE(), BIN);                                                      //read sw mode register, display as binary
-      if (driver.en_softstop() == 1)Serial.println(F("--soft stop enabled. uses deccel ramp to stop and act as a limit switch"));
-      if (driver.en_softstop() == 0)Serial.println(F("--soft stop disabled. uses physical limit switches"));
-      if (driver.sg_stop() == 0)Serial.println(F("--stop by stallguard disabled"));
-      if (driver.sg_stop() == 1)Serial.println(F("--stop by stallguard enabled"));
-      if (driver.en_latch_encoder() == 1)Serial.println(F("--limit switch event stores encoder position into ENC_LATCH"));
-      if (driver.latch_r_inactive() == 1)Serial.println(F("--right limit switch event latches on inactive signal (active / inactive signal set by pol_stop_r"));
-      if (driver.latch_r_active() == 1)Serial.println(F("--right limit switch event latches on active signal (active / inactive signal set by pol_stop_r"));
-      if (driver.latch_l_inactive() == 1)Serial.println(F("--left limit switch event latches on inactive signal (active / inactive signal set by pol_stop_l"));
-      if (driver.latch_l_inactive() == 1)Serial.println(F("--left limit switch event latches on active signal (active / inactive signal set by pol_stop_l"));
-      if (driver.swap_lr() == 0)Serial.println(F("--input on refL is left limit switch and refR is right limit switch"));
-      if (driver.swap_lr() == 1)Serial.println(F("--input on refR is left limit switch and refL is right limit switch"));
-      if (driver.pol_stop_r() == 0)Serial.println(F("--high signal on refR is considered active"));
-      if (driver.pol_stop_r() == 1)Serial.println(F("--low signal on refR is considered active"));
-      if (driver.pol_stop_l() == 0)Serial.println(F("--high signal on refL is considered active"));
-      if (driver.pol_stop_l() == 1)Serial.println(F("--low signal on refL is considered active"));
-      if (driver.stop_r_enable() == 0)Serial.println(F("--motor stops on refR active"));
-      //if (driver.stop_l_enable() == 0)Serial.println(F("--motor stops on refL active"));
-    }
-    /* read RAMPSTAT */{
-      Serial.println(F(""));
-      Serial.print(F("RAMP_STAT ->"));
-      Serial.println(driver.RAMP_STAT(), BIN);                                                    //display ramp status as binary
-      if (driver.status_sg() == 1)Serial.println(F("--stall event detected"));
-      if (driver.second_move() == 1)Serial.println(F("--ramp interrupted, reverse motion was required"));
-      if (driver.t_zerowait_active() == 1)Serial.println(F("--standstill wait period active"));
-      if (driver.vzero() == 1)Serial.println(F("--velocity is 0"));
-      if (driver.position_reached() == 1)Serial.println(F("--position is reached"));
-      if (driver.velocity_reached() == 1)Serial.println(F("--velocity reached"));
-      if (driver.event_pos_reached() == 1)Serial.println(F("--target position reached"));
-      if (driver.event_stop_sg() == 1)Serial.println(F("--stallguard event occurred"));
-      if (driver.event_stop_r() == 1)Serial.println(F("--right limit switch event occurred"));
-      if (driver.event_stop_l() == 1)Serial.println(F("--left limit switch event occurred"));
-      if (driver.status_latch_r() == 0)Serial.println(F("--right latch not ready"));
-      if (driver.status_latch_r() == 1)Serial.println(F("--right latch ready"));
-      if (driver.status_latch_l() == 0)Serial.println(F("--left latch not ready"));
-      if (driver.status_latch_l() == 1)Serial.println(F("--left latch ready"));
-      if (driver.status_stop_r() == 0)Serial.println(F("--refR not active"));
-      if (driver.status_stop_r() == 1)Serial.println(F("--refR active"));
-      if (driver.status_stop_l() == 0)Serial.println(F("--refL not active"));
-      if (driver.status_stop_l() == 1)Serial.println(F("--refL active"));
-    }
+    /* read SW_MODE */
+     read_SW_MODE_address();
+
+    /* read RAMPSTAT */
+      read_RAMP_STAT_address();
+    
     /* read XLATCH */
     Serial.println(F(""));
     Serial.print(F("XLATCH ->"));
@@ -569,13 +522,16 @@ void read_registers(void)
   /* Encoder registers */ {
     /*read ENCMODE */
     read_ENCMODE_address();
+
     /* read X_ENC */
     Serial.println(F(""));
     Serial.print(F("Z_ENC ->"));
     Serial.println(driver.X_ENC(), DEC);
+
     /* read ENC_STATUS */
     Serial.print(F("ENC_STATUS ->"));
     Serial.println(driver.ENC_STATUS(), BIN);
+
     /* read ENC_LATCH */
     Serial.print(F("ENC_LATCH ->"));
     Serial.println(driver.ENC_LATCH(), DEC);
@@ -736,12 +692,55 @@ void read_OFFSET_READ_address(void){
 //end of OFFSET_READ
 
 void read_SW_MODE_address(void){
-
+  /* read SW_MODE */{
+      Serial.println(F(""));
+      Serial.print(F("SW_MODE ->"));
+      Serial.println(driver.SW_MODE(), BIN);                                                      //read sw mode register, display as binary
+      if (driver.en_softstop() == 1)Serial.println(F("--soft stop enabled. uses deccel ramp to stop and act as a limit switch"));
+      if (driver.en_softstop() == 0)Serial.println(F("--soft stop disabled. uses physical limit switches"));
+      if (driver.sg_stop() == 0)Serial.println(F("--stop by stallguard disabled"));
+      if (driver.sg_stop() == 1)Serial.println(F("--stop by stallguard enabled"));
+      if (driver.en_latch_encoder() == 1)Serial.println(F("--limit switch event stores encoder position into ENC_LATCH"));
+      if (driver.latch_r_inactive() == 1)Serial.println(F("--right limit switch event latches on inactive signal (active / inactive signal set by pol_stop_r"));
+      if (driver.latch_r_active() == 1)Serial.println(F("--right limit switch event latches on active signal (active / inactive signal set by pol_stop_r"));
+      if (driver.latch_l_inactive() == 1)Serial.println(F("--left limit switch event latches on inactive signal (active / inactive signal set by pol_stop_l"));
+      if (driver.latch_l_inactive() == 1)Serial.println(F("--left limit switch event latches on active signal (active / inactive signal set by pol_stop_l"));
+      if (driver.swap_lr() == 0)Serial.println(F("--input on refL is left limit switch and refR is right limit switch"));
+      if (driver.swap_lr() == 1)Serial.println(F("--input on refR is left limit switch and refL is right limit switch"));
+      if (driver.pol_stop_r() == 0)Serial.println(F("--high signal on refR is considered active"));
+      if (driver.pol_stop_r() == 1)Serial.println(F("--low signal on refR is considered active"));
+      if (driver.pol_stop_l() == 0)Serial.println(F("--high signal on refL is considered active"));
+      if (driver.pol_stop_l() == 1)Serial.println(F("--low signal on refL is considered active"));
+      if (driver.stop_r_enable() == 0)Serial.println(F("--motor stops on refR active"));
+      //if (driver.stop_l_enable() == 0)Serial.println(F("--motor stops on refL active"));
+    }
 } //end of SW_MODE
 //end of SW_MODE
 
 void read_RAMP_STAT_address(void){
-
+  /* read RAMPSTAT */{
+      Serial.println(F(""));
+      Serial.print(F("RAMP_STAT ->"));
+      Serial.println(driver.RAMP_STAT(), BIN);                                                    //display ramp status as binary
+      if (driver.status_sg() == 1)Serial.println(F("--stall event detected"));
+      if (driver.second_move() == 1)Serial.println(F("--ramp interrupted, reverse motion was required"));
+      if (driver.t_zerowait_active() == 1)Serial.println(F("--standstill wait period active"));
+      if (driver.vzero() == 1)Serial.println(F("--velocity is 0"));
+      if (driver.position_reached() == 1)Serial.println(F("--position is reached"));
+      if (driver.velocity_reached() == 1)Serial.println(F("--velocity reached"));
+      if (driver.event_pos_reached() == 1)Serial.println(F("--target position reached"));
+      if (driver.event_stop_sg() == 1)Serial.println(F("--stallguard event occurred"));
+      if (driver.event_stop_r() == 1)Serial.println(F("--right limit switch event occurred"));
+      if (driver.event_stop_l() == 1)Serial.println(F("--left limit switch event occurred"));
+      if (driver.status_latch_r() == 0)Serial.println(F("--right latch not ready"));
+      if (driver.status_latch_r() == 1)Serial.println(F("--right latch ready"));
+      if (driver.status_latch_l() == 0)Serial.println(F("--left latch not ready"));
+      if (driver.status_latch_l() == 1)Serial.println(F("--left latch ready"));
+      if (driver.status_stop_r() == 0)Serial.println(F("--refR not active"));
+      if (driver.status_stop_r() == 1)Serial.println(F("--refR active"));
+      if (driver.status_stop_l() == 0)Serial.println(F("--refL not active"));
+      if (driver.status_stop_l() == 1)Serial.println(F("--refL active"));
+    }
 } //end of RAMP_STAT
 //end of RAMP_STAT
 
