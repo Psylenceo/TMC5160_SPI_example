@@ -1,0 +1,14 @@
+{
+	"folders": [
+		{
+			"name": "190718-081130-megaatmega2560",
+			"path": "C:\\Users\\morrissk\\Documents\\PlatformIO\\Projects\\190718-081130-megaatmega2560"
+		}
+	],
+	"settings": {
+		"terminal.integrated.env.windows": {
+			"PATH": "C:\\Users\\morrissk\\.platformio\\penv\\Scripts;C:\\Users\\morrissk\\.platformio\\penv;C:\\Program Files (x86)\\Common Files\\Oracle\\Java\\javapath;n:\\isapps\\oracle\\product\\11.2.0\\client_1\\bin;C:\\Windows\\system32;C:\\Windows;C:\\Windows\\System32\\Wbem;C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\;C:\\Program Files (x86)\\IBM\\Client Access\\Emulator;C:\\Program Files (x86)\\IBM\\Client Access\\Shared;C:\\Program Files (x86)\\IBM\\Client Access\\;C:\\Users\\Administrator\\AppData\\Local\\Microsoft\\WindowsApps;C:\\WINDOWS\\system32;C:\\WINDOWS;C:\\WINDOWS\\System32\\Wbem;C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\;C:\\WINDOWS\\System32\\OpenSSH\\;C:\\Program Files\\Git\\cmd;C:\\Users\\morrissk\\AppData\\Local\\Microsoft\\WindowsApps;;C:\\Users\\morrissk\\AppData\\Local\\Programs\\EmEditor;C:\\Users\\morrissk\\AppData\\Local\\Programs\\Microsoft VS Code\\bin;C:\\Program Files (x86)\\Common Files\\Oracle\\Java\\javapath;n:\\isapps\\oracle\\product\\11.2.0\\client_1\\bin;C:\\Windows\\system32;C:\\Windows;C:\\Windows\\System32\\Wbem;C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\;C:\\Program Files (x86)\\IBM\\Client Access\\Emulator;C:\\Program Files (x86)\\IBM\\Client Access\\Shared;C:\\Program Files (x86)\\IBM\\Client Access\\;C:\\Users\\Administrator\\AppData\\Local\\Microsoft\\WindowsApps;C:\\WINDOWS\\system32;C:\\WINDOWS;C:\\WINDOWS\\System32\\Wbem;C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\;C:\\WINDOWS\\System32\\OpenSSH\\;C:\\Program Files\\Git\\cmd;C:\\Users\\morrissk\\AppData\\Local\\Microsoft\\WindowsApps;;C:\\Users\\morrissk\\AppData\\Local\\Programs\\EmEditor;C:\\Users\\morrissk\\AppData\\Local\\Programs\\Microsoft VS Code\\bin",
+			"PLATFORMIO_CALLER": "vscode"
+		}
+	}
+}

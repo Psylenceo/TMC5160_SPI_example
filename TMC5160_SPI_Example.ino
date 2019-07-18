@@ -70,7 +70,7 @@
    All of that info was from the data sheet and some of it is shown on the product page
  **********************************************************/
 #define motor_milliamps 400    //Milliamps specified on motor datasheet. Change to match your motor.
-#define motor_voltage    12     //Motor operating voltage shown on datasheet. Change tp match your motor.
+#define motor_voltage 12       //Motor operating voltage shown on datasheet. Change tp match your motor.
 #define motor_resistance 30    //Motor coil resistance from datasheet. Change to match your motor.
 #define motor_hold_torque 260  //Motor holding torque from datasheet. Change to match your motor. May need to calculate
 #define motor_counts 200       //number of full steps per full rotation of motor. 360 / degrees = full step count
@@ -140,27 +140,27 @@
    Finally we calculate the drivers PWM off time.
  ***********************************************************/
 
-float  nominal_amps = ( ((motor_milliamps * motor_voltage) / supply_voltage) * 1.0 ),   //calculate the voltage based curent
-       cbemf = ( motor_hold_torque / (2 * nominal_amps) ),    //calc the back emf constant of the motor
-       really_small_number = ( (1 / drv_chop_freq) ),         //testing to driv_toff to calc the number
-       microsteps_per_rev = 51200/*( (motor_counts *  drv_microstep_res) )*/, //testing to get the micro steps per rev calced
-       drv_pwm_grad = ( (cbemf * 2 * pi * ( (drv_clock * 1.46) / (supply_voltage * microsteps_per_rev))) ), //calculate the pwm gradient
-       drv_pwm_ofs = ( (374 * motor_resistance * (nominal_amps / 1000)) / supply_voltage),  //calculate teh pwm offest
+float  nominal_amps = ( ((motor_milliamps * motor_voltage) / supply_voltage) * 1.0 ),                           //calculate the voltage based curent
+       cbemf = ( motor_hold_torque / (2 * nominal_amps) ),                                                      //calc the back emf constant of the motor
+       really_small_number = ( (1 / drv_chop_freq) ),                                                           //testing to driv_toff to calc the number
+       microsteps_per_rev = 51200/*( (motor_counts *  drv_microstep_res) )*/,                                   //testing to get the micro steps per rev calced
+       drv_pwm_grad = ( (cbemf * 2 * pi * ( (drv_clock * 1.46) / (supply_voltage * microsteps_per_rev))) ),     //calculate the pwm gradient
+       drv_pwm_ofs = ( (374 * motor_resistance * (nominal_amps / 1000)) / supply_voltage),                      //calculate teh pwm offest
        driv_toff = ( 3/*really_small_number * drv_clock / 10(((1 / drv_chop_freq) * (drv_decay_percent / 100) * .5) * drv_clock - 12) / 32*/ ); //calculatethe toff of the motor, currently does not calculate value
 
-float pwm_sum_base, //base pwm sum value to be tested in autotune to find optimal set points
-      pwm_sum_tune; //pwm sum value while in the loop for set point optimization
+float pwm_sum_base,                           //base pwm sum value to be tested in autotune to find optimal set points
+      pwm_sum_tune;                           //pwm sum value while in the loop for set point optimization
 
-uint32_t tstep_min = 1048575, //minimum tstep value to assist in velocity based mode change settings
-         tstep_max = 0; //max value while motor is running
+uint32_t tstep_min = 1048575,                 //minimum tstep value to assist in velocity based mode change settings
+         tstep_max = 0;                       //max value while motor is running
 
-int autotune_optimized_up_cnt, //variable to count how many times the up autotune has resulted in the optimal value of pwm sum
-    autotune_optimized_dn_cnt, //variable to count how many times the down autotune has resulted in optimal value of pwm sum
-    autotune_average_optimize_cnt,  //variable for when we try to optimize the pwm sum for both up and down.
-    short_stall = 4;  //variable for tuning short circuit detection stall detect in stealth mode
+int autotune_optimized_up_cnt,                //variable to count how many times the up autotune has resulted in the optimal value of pwm sum
+    autotune_optimized_dn_cnt,                //variable to count how many times the down autotune has resulted in optimal value of pwm sum
+    autotune_average_optimize_cnt,            //variable for when we try to optimize the pwm sum for both up and down.
+    short_stall = 4;                          //variable for tuning short circuit detection stall detect in stealth mode
 
-bool autotune_optimization_flag,    //this flag will go high once autotune optimization is complete or pwm_sum_tune is the lowest it can get for a given number auto tune loops
-     stall_flag;  //flag for when motor is stalled
+bool autotune_optimization_flag,              //this flag will go high once autotune optimization is complete or pwm_sum_tune is the lowest it can get for a given number auto tune loops
+     stall_flag;                              //flag for when motor is stalled
       
 
 /***********************************************************
@@ -186,8 +186,8 @@ TMC5160Stepper driver = TMC5160Stepper(ss, sense_resistor); //we are also tellin
    the function and everything inside the function below the main loop
  ***********************************************************/
 
-void base_calc_values(void); //prototype, but this will show what the calculations above result in as initial values
-void read_registers(void);   //this is just a prototype, but hte function will call up all the readable registers from the driver
+void base_calc_values(void);                     //prototype, but this will show what the calculations above result in as initial values
+void read_registers(void);                       //this is just a prototype, but hte function will call up all the readable registers from the driver
 void read_GCONF_address(void);
 void read_GSTAT_address(void);
 void read_IOIN_address(void);
@@ -201,54 +201,54 @@ void read_DRV_STATUS_address(void);
 
 void setup() {
   /* start up uart config as PC interface*/{
-    Serial.begin(115200);   //serial com at 115200 baud
-    while (!Serial);        //wait for the arduino to detect an open com port
-    Serial.println("Start..."); //com port is open, send 1st mesage
-    Serial.println(""); //add a new line to separate information
-    base_calc_values(); //readout the define calculations
+    Serial.begin(115200);               //serial com at 115200 baud
+    while (!Serial);                    //wait for the arduino to detect an open com port
+    Serial.println("Start...");         //com port is open, send 1st mesage
+    Serial.println("");                 //add a new line to separate information
+    base_calc_values();                 //readout the define calculations
   }
 
   /* start up SPI config and axis IO interfacing*/{
-    SPI.begin();          //stat spi
-    pinMode(sck, OUTPUT); //set sck pin as output for spi clock
-    pinMode(ss, OUTPUT); //set ss pin as an out put for chip select
-    pinMode(drv_en, OUTPUT);  //set drv enable pin as out put
+    SPI.begin();                            //stat spi
+    pinMode(sck, OUTPUT);                   //set sck pin as output for spi clock
+    pinMode(ss, OUTPUT);                    //set ss pin as an out put for chip select
+    pinMode(drv_en, OUTPUT);                //set drv enable pin as out put
   }
 
-  digitalWrite(drv_en, LOW);  //enable the driver so that we can send the initial register values
+  digitalWrite(drv_en, LOW);                //enable the driver so that we can send the initial register values
 
   /*Initial settings for basic SPI command stepper drive no other functions enabled*/ {
-    driver.begin();                                                         // start the tmc library
+    driver.begin();                         // start the tmc library
 
-    read_registers(); //Read all TMC5160 readable registers. Should read initial power presets or last configuration.
-    Serial.println(""); //add a new line to separate information
+    read_registers();                       //Read all TMC5160 readable registers. Should read initial power presets or last configuration.
+    Serial.println("");                     //add a new line to separate information
 
-    driver.rms_current(nominal_amps, 1);                                     //set Irun and Ihold for the drive
+    driver.rms_current(nominal_amps, 1);    //set Irun and Ihold for the drive
 
     /* short circuit monitoring */
     {
-      driver.diss2vs(0);                                                    //driver monitors for short to supply
-      driver.diss2g(0);                                                     //driver to monitor for short to ground
+      driver.diss2vs(0);                    //driver monitors for short to supply
+      driver.diss2g(0);                     //driver to monitor for short to ground
     }
 
     /* base GCONF settings for bare stepper driver operation*/    {
-      driver.recalibrate(0);                                             //do not recalibrate the z axis
-      driver.faststandstill(0);                                          //fast stand still at 65ms
-      driver.en_pwm_mode(0);                                             //no silent step
-      driver.multistep_filt(0);                                          //normal multistep filtering
-      driver.shaft(0);                                                   //motor direction cw
-      driver.small_hysteresis(0);                                        //step hysteresis set 1/16
-      driver.stop_enable(0);                                             //no stop motion inputs
-      driver.direct_mode(0);                                             //normal driver operation
+      driver.recalibrate(0);                //do not recalibrate the z axis
+      driver.faststandstill(0);             //fast stand still at 65ms
+      driver.en_pwm_mode(0);                //no silent step
+      driver.multistep_filt(0);             //normal multistep filtering
+      driver.shaft(0);                      //motor direction cw
+      driver.small_hysteresis(0);           //step hysteresis set 1/16
+      driver.stop_enable(0);                //no stop motion inputs
+      driver.direct_mode(0);                //normal driver operation
     }
   }
 
   /* minimum settings to to get a motor moving using SPI commands */{
-    driver.tbl(0b10);                                                       //set blanking time to 24
-    driver.toff(driv_toff);                                                 //pwm off time factor
-    driver.pwm_freq(0b01);                                                  //pwm at 35.1kHz
+    driver.tbl(0b10);                       //set blanking time to 24
+    driver.toff(driv_toff);                 //pwm off time factor
+    driver.pwm_freq(0b01);                  //pwm at 35.1kHz
 
-    driver.sgt(0);                                            //stallguard sensitivity
+    driver.sgt(0);                          //stallguard sensitivity
     driver.sfilt(0);                                          //stallguard filtering on
     driver.sg_stop(1);                                        //stallguard event stop enabled
   }
