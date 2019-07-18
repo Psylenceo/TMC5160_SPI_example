@@ -186,8 +186,18 @@ TMC5160Stepper driver = TMC5160Stepper(ss, sense_resistor); //we are also tellin
    the function and everything inside the function below the main loop
  ***********************************************************/
 
-void read_registers(void);   //this is just a prototype, but hte function will call up all the readable registers from the driver
 void base_calc_values(void); //prototype, but this will show what the calculations above result in as initial values
+void read_registers(void);   //this is just a prototype, but hte function will call up all the readable registers from the driver
+void read_GCONF_address(void);
+void read_GSTAT_address(void);
+void read_IOIN_address(void);
+void read_OFFSET_READ_address(void);
+void read_SW_MODE_address(void);
+void read_RAMP_STAT_address(void);
+void read_ENCMODE_address(void);
+void read_CHOPCONF_address(void);
+void read_DRV_STATUS_address(void);
+
 
 void setup() {
   /* start up uart config as PC interface*/{
@@ -326,6 +336,7 @@ void setup() {
     driver.XTARGET(100);  //move motor 100 micro steps
     delay(200); //delay 1 full step cycle to get current measurement
     while (autotune_optimization_flag == 0) {
+      Serial.println(F("Starting motion"));
       if (driver.position_reached() == 1) driver.XTARGET((200 / motor_mm_per_microstep));   //if motor in position command a 200 mm move
       stall_flag = 0;   //reset stall flag
       while (driver.position_reached() == 0) {
@@ -349,6 +360,11 @@ void setup() {
         //use pwm sum to determine best speed for auto tuning, pwm sum needs to be as low as possible
         //add skip step detection as well. exit autotune on skipped step
       }
+
+      Serial.println(F("Max tstep time recorded -> "));
+      Serial.println(tstep_max);
+      Serial.println(F("Min tstep time recorded -> "));
+      Serial.println(tstep_min);
 
       if( stall_flag ==1 ){
         digitalWrite(drv_en, HIGH);  //disable in between tests to allow reseting of physical position if need be. And to allow changing of settings.
@@ -440,49 +456,12 @@ void base_calc_values(void) {
 void read_registers(void)
 {
   /* General Configuration registers */{
-    /* read off GCONF */{
-      Serial.println(F(""));
-      Serial.print(F("GCONF -> "));
-      Serial.println(driver.GCONF(), BIN);                                                        //display gconf registers as binary
-      if (driver.recalibrate() == 0)Serial.println(F("--GCONF recalibrate inactive"));
-      if (driver.recalibrate() == 1)Serial.println(F("--GCONF recalibrate active"));
-      if (driver.faststandstill() == 0)Serial.println(F("--standstill timeout detection after 87ms"));
-      if (driver.faststandstill() == 1)Serial.println(F("--standstill timeout detection after 21ms"));
-      if (driver.en_pwm_mode() == 0)Serial.println(F("--stealthchop mode inactive"));
-      if (driver.en_pwm_mode() == 1)Serial.println(F("--stealthchop mode active"));
-      if (driver.multistep_filt() == 0)Serial.println(F("--external step input not filtered"));
-      if (driver.multistep_filt() == 1)Serial.println(F("--external step input filtered"));
-      if (driver.shaft() == 0)Serial.println(F("--motor cw"));
-      if (driver.shaft() == 1)Serial.println(F("--motor ccw"));
-      if (driver.sd_mode() == 1) {
-        if (driver.diag0_error() == 0)Serial.println(F("--no errors"));
-        if (driver.diag0_error() == 1)Serial.println(F("--error either Over temp, short to ground, or undervoltage"));
-        if (driver.diag0_otpw() == 1)Serial.println(F("--Over temp pre-warning"));
-        if (driver.diag0_stall() == 1)Serial.println(F("--motor stall detected"));
-        if (driver.diag1_stall() == 1)Serial.println(F("--motor stall detected"));
-        if (driver.diag1_index() == 1)Serial.println(F("--diag 1 used as encoder index output"));
-        if (driver.diag1_onstate() == 1)Serial.println(F("--diag 1 active while chopper is active"));
-        if (driver.diag1_steps_skipped() == 1)Serial.println(F("--diag 1 toggle with skipped steps detected in dcstep mode"));
-      }
-      if (driver.diag0_int_pushpull() == 0)Serial.println(F("--diag 0 is active low output"));
-      if (driver.diag0_int_pushpull() == 1)Serial.println(F("--diag 0 is active high output"));
-      if (driver.diag1_poscomp_pushpull() == 0)Serial.println(F("--diag 1 is active low output"));
-      if (driver.diag1_poscomp_pushpull() == 1)Serial.println(F("--diag 1 is active high output"));
-      if (driver.small_hysteresis() == 0)Serial.println(F("--step frequency hysteresis is 1/16"));
-      if (driver.small_hysteresis() == 1)Serial.println(F("--step frequency hysteresis is 1/32"));
-      if (driver.stop_enable() == 0)Serial.println(F("--Normal operation (no stop control inputs)"));
-      if (driver.stop_enable() == 1)Serial.println(F("--ENCA input becomes a stop control input"));
-      if (driver.direct_mode() == 0)Serial.println(F("--Normal operation"));
-      if (driver.direct_mode() == 1)Serial.println(F("--weird motor current control"));
-    }
-    /* read of GSTAT */{
-      Serial.println(F(""));
-      Serial.print(F("GSTAT -> "));
-      Serial.println(driver.GSTAT(), BIN);                                                        //display gstat register as binary
-      if (driver.reset() == 1)Serial.println(F("--driver has been reset. All values restored to factory defaults. Reload specific configuration settings"));
-      if (driver.drv_err() == 1)Serial.println(F("--over temp or short circuit fault. read drv_status for details"));
-      if (driver.uv_cp() == 1)Serial.println(F("--undervoltage on charge pump detected"));
-    }
+    /* read off GCONF */
+      read_GCONF_address();
+
+    /* read of GSTAT */
+      read_GSTAT_address();    
+
     /*read off IOIN input status */{
       Serial.println(F(""));
       Serial.print(F("IOIN -> "));
@@ -743,6 +722,64 @@ void read_registers(void)
 } // end of read register
 //end of read register
 
+void read_GCONF_address(void){
+/* read off GCONF */{
+      Serial.println(F(""));
+      Serial.print(F("GCONF -> "));
+      Serial.println(driver.GCONF(), BIN);                                                        //display gconf registers as binary
+      if (driver.recalibrate() == 0)Serial.println(F("--GCONF recalibrate inactive"));
+      if (driver.recalibrate() == 1)Serial.println(F("--GCONF recalibrate active"));
+      if (driver.faststandstill() == 0)Serial.println(F("--standstill timeout detection after 87ms"));
+      if (driver.faststandstill() == 1)Serial.println(F("--standstill timeout detection after 21ms"));
+      if (driver.en_pwm_mode() == 0)Serial.println(F("--stealthchop mode inactive"));
+      if (driver.en_pwm_mode() == 1)Serial.println(F("--stealthchop mode active"));
+      if (driver.multistep_filt() == 0)Serial.println(F("--external step input not filtered"));
+      if (driver.multistep_filt() == 1)Serial.println(F("--external step input filtered"));
+      if (driver.shaft() == 0)Serial.println(F("--motor cw"));
+      if (driver.shaft() == 1)Serial.println(F("--motor ccw"));
+      if (driver.sd_mode() == 1) {
+        if (driver.diag0_error() == 0)Serial.println(F("--no errors"));
+        if (driver.diag0_error() == 1)Serial.println(F("--error either Over temp, short to ground, or undervoltage"));
+        if (driver.diag0_otpw() == 1)Serial.println(F("--Over temp pre-warning"));
+        if (driver.diag0_stall() == 1)Serial.println(F("--motor stall detected"));
+        if (driver.diag1_stall() == 1)Serial.println(F("--motor stall detected"));
+        if (driver.diag1_index() == 1)Serial.println(F("--diag 1 used as encoder index output"));
+        if (driver.diag1_onstate() == 1)Serial.println(F("--diag 1 active while chopper is active"));
+        if (driver.diag1_steps_skipped() == 1)Serial.println(F("--diag 1 toggle with skipped steps detected in dcstep mode"));
+      }
+      if (driver.diag0_int_pushpull() == 0)Serial.println(F("--diag 0 is active low output"));
+      if (driver.diag0_int_pushpull() == 1)Serial.println(F("--diag 0 is active high output"));
+      if (driver.diag1_poscomp_pushpull() == 0)Serial.println(F("--diag 1 is active low output"));
+      if (driver.diag1_poscomp_pushpull() == 1)Serial.println(F("--diag 1 is active high output"));
+      if (driver.small_hysteresis() == 0)Serial.println(F("--step frequency hysteresis is 1/16"));
+      if (driver.small_hysteresis() == 1)Serial.println(F("--step frequency hysteresis is 1/32"));
+      if (driver.stop_enable() == 0)Serial.println(F("--Normal operation (no stop control inputs)"));
+      if (driver.stop_enable() == 1)Serial.println(F("--ENCA input becomes a stop control input"));
+      if (driver.direct_mode() == 0)Serial.println(F("--Normal operation"));
+      if (driver.direct_mode() == 1)Serial.println(F("--weird motor current control"));
+    }
+} //end of read GCONF
+//end of GCONF
+
+void read_GSTAT_address(void){
+  /* read of GSTAT */{
+      Serial.println(F(""));
+      Serial.print(F("GSTAT -> "));
+      Serial.println(driver.GSTAT(), BIN);                                                        //display gstat register as binary
+      if (driver.reset() == 1)Serial.println(F("--driver has been reset. All values restored to factory defaults. Reload specific configuration settings"));
+      if (driver.drv_err() == 1)Serial.println(F("--over temp or short circuit fault. read drv_status for details"));
+      if (driver.uv_cp() == 1)Serial.println(F("--undervoltage on charge pump detected"));
+    }
+}
+
+
+void read_IOIN_address(void);
+void read_OFFSET_READ_address(void);
+void read_SW_MODE_address(void);
+void read_RAMP_STAT_address(void);
+void read_ENCMODE_address(void);
+void read_CHOPCONF_address(void);
+void read_DRV_STATUS_address(void);
 
 
 
