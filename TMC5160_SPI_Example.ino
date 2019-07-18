@@ -192,10 +192,23 @@ void read_GCONF_address(void);                   //prototype function to read on
 void read_GSTAT_address(void);                   //prototype function to read only the specific register address from the TMC5160
 void read_IOIN_address(void);                    //prototype function to read only the specific register address from the TMC5160
 void read_OFFSET_READ_address(void);             //prototype function to read only the specific register address from the TMC5160
+void read_TSTEP_address(void);                   //prototype function to read only the specific register address from the TMC5160
+void read_RAMP_MODE_address(void);               //prototype function to read only the specific register address from the TMC5160
+void read_XACTUAL_address(void);                 //prototype function to read only the specific register address from the TMC5160
+void read_VACTUAL_address(void);                 //prototype function to read only the specific register address from the TMC5160
+void read_XTARGET_address(void);                 //prototype function to read only the specific register address from the TMC5160
 void read_SW_MODE_address(void);                 //prototype function to read only the specific register address from the TMC5160
 void read_RAMP_STAT_address(void);               //prototype function to read only the specific register address from the TMC5160
+void read_XLATCH_address(void);                  //prototype function to read only the specific register address from the TMC5160
 void read_ENCMODE_address(void);                 //prototype function to read only the specific register address from the TMC5160
+void read_X_ENC_address(void);                   //prototype function to read only the specific register address from the TMC5160
+void read_ENC_STATUS_address(void);              //prototype function to read only the specific register address from the TMC5160
+void read_ENC_LATCH_address(void);               //prototype function to read only the specific register address from the TMC5160
+void read_MSCNT_address(void);                   //prototype function to read only the specific register address from the TMC5160
+void read_MSCURACT_A_address(void);              //prototype function to read only the specific register address from the TMC5160
+void read_MSCURACT_B_address(void);              //prototype function to read only the specific register address from the TMC5160
 void read_CHOPCONF_address(void);                //prototype function to read only the specific register address from the TMC5160
+void read_COOLCONF_address(void);
 void read_DRV_STATUS_address(void);              //prototype function to read only the specific register address from the TMC5160
 
 
@@ -480,30 +493,21 @@ void read_registers(void){
 
   /* Velocity dependant driver feature control registers */{
     /* read TSTEP. shows actual time time between each step*/
-    Serial.println(F(""));
-    Serial.print(F("TSTEP -> "));
-    Serial.println(driver.TSTEP(), DEC);                                                        //time between steps
-    //Serial.println(" ms");
+    read_TSTEP_address();
   }
 
   /* Ramp generator motion control registers */ {
     /* read RAMPMODE */
-    Serial.println(F(""));
-    switch (driver.RAMPMODE()) {                                                                //ready rampmode register and explain mode
-      case (1): Serial.println(F("Velocity mode positive (VMAX and AMAX only)")); break;
-      case (2): Serial.println(F("Velocity mode negative (VMAX and AMAX only)")); break;
-      case (3): Serial.println(F("Hold mode (constant velocity)")); break;
-      default: Serial.println(F("Positioning mode use all parameters")); break;
-    }
+    read_RAMP_MODE_address();
+    
     /* read XACTUAL */
-    Serial.print(F("XACTUAL ->"));
-    Serial.println(driver.XACTUAL(), DEC);                                                      //display actual count position
+    read_XACTUAL_address();
+
     /* read VACTUAL */
-    Serial.print(F("VACTUAL ->"));
-    Serial.println(driver.VACTUAL(), DEC);                                                      //actual velocity, most likely going to be 0 because this will be read with no motion in this register routine
+    read_VACTUAL_address();
+
     /* read XTARGET */
-    Serial.print(F("XTARGET ->"));
-    Serial.println(driver.XTARGET(), DEC);                                                      //requested target position
+    read_XTARGET_address();
   }
 
   /* Ramp generator driver feature control registers */ {
@@ -514,9 +518,7 @@ void read_registers(void){
       read_RAMP_STAT_address();
     
     /* read XLATCH */
-    Serial.println(F(""));
-    Serial.print(F("XLATCH ->"));
-    Serial.println(driver.XLATCH(), DEC);
+    read_XLATCH_address();
   }//display position x latch occurred
 
   /* Encoder registers */ {
@@ -524,30 +526,24 @@ void read_registers(void){
     read_ENCMODE_address();
 
     /* read X_ENC */
-    Serial.println(F(""));
-    Serial.print(F("Z_ENC ->"));
-    Serial.println(driver.X_ENC(), DEC);
+    read_X_ENC_address();
 
     /* read ENC_STATUS */
-    Serial.print(F("ENC_STATUS ->"));
-    Serial.println(driver.ENC_STATUS(), BIN);
+    read_ENC_STATUS_address();
 
     /* read ENC_LATCH */
-    Serial.print(F("ENC_LATCH ->"));
-    Serial.println(driver.ENC_LATCH(), DEC);
+    read_ENC_LATCH_address();
   }
 
   /* Motor drive registers */ {
     /* read MSCNT */
-    Serial.println(F(""));
-    Serial.print(F("MSCNT ->"));
-    Serial.println(driver.MSCNT(), DEC);
+    read_MSCNT_address();
+
     /*read MSCURACT phase A */
-    Serial.print(F("MSCURACT CUR_A ->"));
-    Serial.println(driver.cur_a(), DEC);                                                        //current of phase a
+    read_MSCURACT_A_address();
+
     /* read MSCURACT phase B */
-    Serial.print(F("MSCURACT CUR_B ->"));
-    Serial.println(driver.cur_b(), DEC);                                                        //current of phase b
+    read_MSCURACT_B_address();
   }
 
   /* Driver registers */ {
@@ -654,7 +650,7 @@ void read_GCONF_address(void){
       if (driver.direct_mode() == 1)Serial.println(F("--weird motor current control"));
     }
 } //end of read GCONF
-//end of GCONF
+//end of read GCONF
 
 void read_GSTAT_address(void){
   /* read of GSTAT */{
@@ -687,9 +683,61 @@ void read_IOIN_address(void){
 //end of read IOIN
 
 void read_OFFSET_READ_address(void){
-
+  /*read OFFSET_READ */{
+      Serial.println(F(""));
+      Serial.print(F("OFFSET_READ -> "));
+      Serial.println(driver.OFFSET_READ(), HEX);
+      Serial.print(F("--offset phase a -> "));
+      Serial.println(((driver.OFFSET_READ() & 0xFF00) >> 8), DEC);
+      Serial.print(F("--offset phase b -> "));
+      Serial.println((driver.OFFSET_READ() & 0x00FF), DEC);
+    }
 } //end of read OFFSET_READ
-//end of OFFSET_READ
+//end of read OFFSET_READ
+
+void read_TSTEP_address(void){
+  /* read TSTEP. shows actual time time between each step*/
+    Serial.println(F(""));
+    Serial.print(F("TSTEP -> "));
+    Serial.println(driver.TSTEP(), DEC);                                                        //time between steps
+    //Serial.println(" ms");
+} //end of read TSTEP
+//end of read TSTEP
+
+void read_RAMP_MODE_address(void){
+  /* read RAMPMODE */
+    Serial.println(F(""));
+    switch (driver.RAMPMODE()) {                                                                //ready rampmode register and explain mode
+      case (1): Serial.println(F("Velocity mode positive (VMAX and AMAX only)")); break;
+      case (2): Serial.println(F("Velocity mode negative (VMAX and AMAX only)")); break;
+      case (3): Serial.println(F("Hold mode (constant velocity)")); break;
+      default: Serial.println(F("Positioning mode use all parameters")); break;
+    }
+} //end of read RAMPMODE
+//end of read RAMPMODE
+
+void read_XACTUAL_address(void){
+  /* read XACTUAL */
+  Serial.print(F("XACTUAL ->"));
+  Serial.println(driver.XACTUAL(), DEC);                                                      //display actual count position
+
+} //end of read XACTUAL
+//end of read XACTUAL
+
+void read_VACTUAL_address(void){
+  /* read VACTUAL */
+    Serial.print(F("VACTUAL ->"));
+    Serial.println(driver.VACTUAL(), DEC);                                                      //actual velocity, most likely going to be 0 because this will be read with no motion in this register routine
+    
+} //end of read VACTUAL
+//end of read VACTUAL
+
+void read_XTARGET_address(void){
+  /* read XTARGET */
+    Serial.print(F("XTARGET ->"));
+    Serial.println(driver.XTARGET(), DEC);                                                      //requested target position
+} //end of read XTARGET
+//end of read XTARGET
 
 void read_SW_MODE_address(void){
   /* read SW_MODE */{
@@ -714,8 +762,8 @@ void read_SW_MODE_address(void){
       if (driver.stop_r_enable() == 0)Serial.println(F("--motor stops on refR active"));
       //if (driver.stop_l_enable() == 0)Serial.println(F("--motor stops on refL active"));
     }
-} //end of SW_MODE
-//end of SW_MODE
+} //end of read SW_MODE
+//end of read SW_MODE
 
 void read_RAMP_STAT_address(void){
   /* read RAMPSTAT */{
@@ -741,8 +789,17 @@ void read_RAMP_STAT_address(void){
       if (driver.status_stop_l() == 0)Serial.println(F("--refL not active"));
       if (driver.status_stop_l() == 1)Serial.println(F("--refL active"));
     }
-} //end of RAMP_STAT
-//end of RAMP_STAT
+} //end of read RAMP_STAT
+//end of read RAMP_STAT
+
+void read_XLATCH_address(void){
+  /* read XLATCH */
+    Serial.println(F(""));
+    Serial.print(F("XLATCH ->"));
+    Serial.println(driver.XLATCH(), DEC);
+    //display position x latch occurred
+} //end of read XLATCH
+//end of read XLATCH
 
 void read_ENCMODE_address(void){
   /*read ENCMODE */{
@@ -765,8 +822,52 @@ void read_ENCMODE_address(void){
       if (driver.pol_a() == 0)Serial.println(F("--a event on low pulse"));
       if (driver.pol_a() == 1)Serial.println(F("--a event on high pulse"));
     }
-} //end of ENCMODE
-//end of ENCMODE
+} //end of read ENCMODE
+//end of read ENCMODE
+
+void read_X_ENC_address(void){
+  /* read X_ENC */
+    Serial.println(F(""));
+    Serial.print(F("Z_ENC ->"));
+    Serial.println(driver.X_ENC(), DEC);
+} //end of read X_ENC
+//end of read X_ENC
+
+void read_ENC_STATUS_address(void){
+  /* read ENC_STATUS */
+    Serial.print(F("ENC_STATUS ->"));
+    Serial.println(driver.ENC_STATUS(), BIN);
+} //end of ENC_STATUS
+//end of read ENC_STATUS
+
+void read_ENC_LATCH_address(void){
+  /* read ENC_LATCH */
+    Serial.print(F("ENC_LATCH ->"));
+    Serial.println(driver.ENC_LATCH(), DEC);
+} //end of ENC_LATCH
+//end of ENC_LATCH
+
+void read_MSCNT_address(void){
+  /* read MSCNT */
+    Serial.println(F(""));
+    Serial.print(F("MSCNT ->"));
+    Serial.println(driver.MSCNT(), DEC);
+} //end of read MSCNT
+//end of read MSCNT
+
+void read_MSCURACT_A_address(void){
+  /*read MSCURACT phase A */
+    Serial.print(F("MSCURACT CUR_A ->"));
+    Serial.println(driver.cur_a(), DEC);                                                        //current of phase a
+} //end of read read_MSCURACT_A_address
+//end of read MSCURACT_A
+
+void read_MSCURACT_B_address(void){
+  /* read MSCURACT phase B */
+    Serial.print(F("MSCURACT CUR_B ->"));
+    Serial.println(driver.cur_b(), DEC);                                                        //current of phase b
+} //end of read read_MSCURACT_B
+//end of read MSCURACT_B
 
 void read_CHOPCONF_address(void){
   /* read CHOPCONF */{
@@ -804,8 +905,8 @@ void read_CHOPCONF_address(void){
       Serial.print(F("--Slow decay off time and driver enable ->"));
       Serial.println(driver.toff(), DEC);                                                         //display pwm off time setting
     }
-} //end of CHOPCONF
-//end of CHOPCONF
+} //end of read CHOPCONF
+//end of read CHOPCONF
 
 void read_DRV_STATUS_address(void){
   /* read DRV_STATUS */ {
@@ -832,7 +933,7 @@ void read_DRV_STATUS_address(void){
 
     }
 } //end of read DRV_STATUS
-//end of DRV_STATUS
+//end of read DRV_STATUS
 
 
 
