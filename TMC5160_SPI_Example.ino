@@ -27,13 +27,13 @@
     with a chip identifier if statement so that at compile time it will only
     compile what is needed and can fit on the 328P.
  *  *********************************************************************/
-#include <Arduino.h>
-#include <TMCStepper.h>
-#include <TMCStepper_UTILITY.h>
+#include <Arduino.h>                          //Include the arduino header for use within platformIO
+#include <TMCStepper.h>                       //header for tmcstepper library
+#include <TMCStepper_UTILITY.h>               //header for thcstepper utility library
 
-#define TMC5160_SPI_EXAMPLE_VERSION 0x000104  //v0.1.4
+#define TMC5160_SPI_EXAMPLE_VERSION 0x000105  //v0.1.5
 
-#define pi 3.1415926535           //Pi is used in calculating the drivers initial pwm gradient for autotuning the motor
+#define pi 3.1415926535                       //Pi is used in calculating the drivers initial pwm gradient for autotuning the motor
 
 /****************************************************
    This code uses the arduino hardware SPI, but software SPI
@@ -70,7 +70,7 @@
    All of that info was from the data sheet and some of it is shown on the product page
  **********************************************************/
 #define motor_milliamps 400    //Milliamps specified on motor datasheet. Change to match your motor.
-#define motor_voltage 12       //Motor operating voltage shown on datasheet. Change tp match your motor.
+#define motor_voltage 24       //Motor operating voltage shown on datasheet. Change tp match your motor.
 #define motor_resistance 30    //Motor coil resistance from datasheet. Change to match your motor.
 #define motor_hold_torque 260  //Motor holding torque from datasheet. Change to match your motor. May need to calculate
 #define motor_counts 200       //number of full steps per full rotation of motor. 360 / degrees = full step count
@@ -187,16 +187,16 @@ TMC5160Stepper driver = TMC5160Stepper(ss, sense_resistor); //we are also tellin
  ***********************************************************/
 
 void base_calc_values(void);                     //prototype, but this will show what the calculations above result in as initial values
-void read_registers(void);                       //this is just a prototype, but hte function will call up all the readable registers from the driver
-void read_GCONF_address(void);
-void read_GSTAT_address(void);
-void read_IOIN_address(void);
-void read_OFFSET_READ_address(void);
-void read_SW_MODE_address(void);
-void read_RAMP_STAT_address(void);
-void read_ENCMODE_address(void);
-void read_CHOPCONF_address(void);
-void read_DRV_STATUS_address(void);
+void read_registers(void);                       //this is just a prototype, but the function will call up all the readable registers from the driver
+void read_GCONF_address(void);                   //prototype function to read only the specific register address from the TMC5160
+void read_GSTAT_address(void);                   //prototype function to read only the specific register address from the TMC5160
+void read_IOIN_address(void);                    //prototype function to read only the specific register address from the TMC5160
+void read_OFFSET_READ_address(void);             //prototype function to read only the specific register address from the TMC5160
+void read_SW_MODE_address(void);                 //prototype function to read only the specific register address from the TMC5160
+void read_RAMP_STAT_address(void);               //prototype function to read only the specific register address from the TMC5160
+void read_ENCMODE_address(void);                 //prototype function to read only the specific register address from the TMC5160
+void read_CHOPCONF_address(void);                //prototype function to read only the specific register address from the TMC5160
+void read_DRV_STATUS_address(void);              //prototype function to read only the specific register address from the TMC5160
 
 
 void setup() {
@@ -249,8 +249,8 @@ void setup() {
     driver.pwm_freq(0b01);                  //pwm at 35.1kHz
 
     driver.sgt(0);                          //stallguard sensitivity
-    driver.sfilt(0);                                          //stallguard filtering on
-    driver.sg_stop(1);                                        //stallguard event stop enabled
+    driver.sfilt(0);                        //stallguard filtering on
+    driver.sg_stop(1);                      //stallguard event stop enabled
   }
 
   /************************************************************
@@ -280,50 +280,50 @@ void setup() {
     driver.VSTOP(100);              //set stop velocity to 100 steps/sec
     driver.VSTART(100);             //set start velocity to 100 steps/sec
 
-    driver.V1(51200);            //midpoint velocity to  steps/sec ( steps/sec)
-    driver.VMAX(51200);          //max velocity to  steps/sec ( steps/sec)
+    driver.V1(51200);               //midpoint velocity to  steps/sec ( steps/sec)
+    driver.VMAX(51200);             //max velocity to  steps/sec ( steps/sec)
 
-    driver.A1(25600);                 //initial accel at  steps/sec2 ( steps/sec2)
-    driver.AMAX(25600);               //max accel at  steps/sec2 ( steps/sec2)
+    driver.A1(25600);               //initial accel at  steps/sec2 ( steps/sec2)
+    driver.AMAX(25600);             //max accel at  steps/sec2 ( steps/sec2)
 
-    driver.DMAX(25600);               //max deccel  steps/sec2 ( steps/sec2)
-    driver.D1(25600);                 //mid deccel  steps/sec2 ( steps/sec2)
+    driver.DMAX(25600);             //max deccel  steps/sec2 ( steps/sec2)
+    driver.D1(25600);               //mid deccel  steps/sec2 ( steps/sec2)
   }
 
   /*First motion*/{
     /*Now that all the minimum settings to get a TMC5160 are set, well read all the registers again, to check settings*/
-    read_registers(); //Read all TMC5160 readable registers. Should read initial power presets or last configuration.
-    Serial.println(""); //add a new line to separate information
+    read_registers();               //Read all TMC5160 readable registers. Should read initial power presets or last configuration.
+    Serial.println("");             //add a new line to separate information
 
     /*Perform zero crossing calibration. No idea what it does, I just do it act as a starting point.*/
-    digitalWrite(drv_en, HIGH);  //disable the driver to clear short circuit fault
-    driver.recalibrate(1); //Perform an initial zero crossing calibration
-    delay(1000);           //wait 1 second for calibration
-    driver.recalibrate(0); //finish initial zero crossing calibration
-    digitalWrite(drv_en, LOW);  //enable the driver
-    driver.GSTAT(0b111);      //clear gstat faults
+    digitalWrite(drv_en, HIGH);     //disable the driver to clear short circuit fault
+    driver.recalibrate(1);          //Perform an initial zero crossing calibration
+    delay(1000);                    //wait 1 second for calibration
+    driver.recalibrate(0);          //finish initial zero crossing calibration
+    digitalWrite(drv_en, LOW);      //enable the driver
+    driver.GSTAT(0b111);            //clear gstat faults
 
     /*Read all registers again see that GSTAT has cleared, and to make sure some of the other faults are cleared as well.*/
-    read_registers(); //Read all TMC5160 readable registers. Should read initial power presets or last configuration.
-    Serial.println(""); //add a new line to separate information
+    read_registers();               //Read all TMC5160 readable registers. Should read initial power presets or last configuration.
+    Serial.println("");             //add a new line to separate information
 
     /*Now lets start the first actual move to see if everything worked, and to hear what the stepper sounds like.*/
-    if (driver.position_reached() == 1) driver.XTARGET((100 / motor_mm_per_microstep));
-    while (driver.position_reached() == 0);
-    if (driver.position_reached() == 1) driver.XTARGET(0);
-    while (driver.position_reached() == 0);
+    if (driver.position_reached() == 1) driver.XTARGET((100 / motor_mm_per_microstep));     //verify motor is at starting position, then move motor equivalent to 100mm
+    while (driver.position_reached() == 0);                                                 //while in motion do nothing. This prevents the code from missing actions
+    if (driver.position_reached() == 1) driver.XTARGET(0);                                  //verify motor is at position, then move motor back to starting position
+    while (driver.position_reached() == 0);                                                 //while in motion do nothing. This prevents the code from missing actions
   }
 
   /*Silent step and autotuning*/{
     /* stealth settings */ {
       driver.en_pwm_mode(1);                                                  // silent step enable
       driver.TPWMTHRS(75);                                                    //65 decent point to avoid skips and mechanical load noise near top when and while moving down
-      driver.pwm_lim(29);                                                    //sets the pwm voltage limit
+      driver.pwm_lim(29);                                                     //sets the pwm voltage limit
       driver.pwm_autoscale(0);                                                //automatic current scaling
       driver.pwm_autograd(0);                                                 //automatic tuning
-      driver.pwm_ofs(drv_pwm_ofs);                                               //user calculated pwm amplitude offset
-      driver.pwm_grad(drv_pwm_grad);                                            //velocity pwm gradual
-      //driver.freewheel(0);                                                   //0 hold current action
+      driver.pwm_ofs(drv_pwm_ofs);                                            //user calculated pwm amplitude offset
+      driver.pwm_grad(drv_pwm_grad);                                          //velocity pwm gradual
+      //driver.freewheel(0);                                                  //0 hold current action
     }
 
     /* Change short circuit detection level to super sensitive to act as stall detection during autotune and stealth chop */{
@@ -332,13 +332,13 @@ void setup() {
 
     Serial.println(F("Starting stealth chop autotune"));
     driver.pwm_autoscale(1);                                                //automatic current scaling
-    delay(360);   //delay for 2 full step cycles to allow settling
-    driver.XTARGET(100);  //move motor 100 micro steps
-    delay(200); //delay 1 full step cycle to get current measurement
+    delay(360);                                                             //delay for 2 full step cycles to allow settling
+    driver.XTARGET(100);                                                    //move motor 100 micro steps
+    delay(200);                                                             //delay 1 full step cycle to get current measurement
     while (autotune_optimization_flag == 0) {
       Serial.println(F("Starting motion"));
       if (driver.position_reached() == 1) driver.XTARGET((200 / motor_mm_per_microstep));   //if motor in position command a 200 mm move
-      stall_flag = 0;   //reset stall flag
+      stall_flag = 0;                                                       //reset stall flag
       while (driver.position_reached() == 0) {
         /*****
          * softstop
@@ -348,59 +348,69 @@ void setup() {
          * 
          */
         
+        /* Temporary if statement to test functionality until library is updated */
+          if( ( (driver.DRV_STATUS() & 0x00001000) == 1 || (driver.DRV_STATUS() & 0x00002000) == 1) && stall_flag == 0){   
+          stall_flag =1;
+          Serial.println(F("Motor short circuit stalled"));
+          break;
+        }
+        
         /*if( (driver.s2vsa() == 1 || driver.s2vsb() == 1) && stall_flag == 0){   
           stall_flag =1;
           Serial.println(F("Motor short circuit stalled"));
           break;
         }*/
         
-        if( driver.TSTEP() > tstep_max ) tstep_max = driver.TSTEP();
-        if( driver.TSTEP() < tstep_min ) tstep_min = driver.TSTEP();
+        if( driver.TSTEP() > tstep_max ) tstep_max = driver.TSTEP();        //while motor is moving, measure tstep max step time              
+        if( driver.TSTEP() < tstep_min ) tstep_min = driver.TSTEP();        //while motor is moving, measure tstep min step time
         
         //use pwm sum to determine best speed for auto tuning, pwm sum needs to be as low as possible
         //add skip step detection as well. exit autotune on skipped step
       }
 
       Serial.println(F("Max tstep time recorded -> "));
-      Serial.println(tstep_max);
+      Serial.println(tstep_max);                                            //display measured max step time  
       Serial.println(F("Min tstep time recorded -> "));
-      Serial.println(tstep_min);
+      Serial.println(tstep_min);                                            //display measured min step time
 
       if( stall_flag ==1 ){
-        digitalWrite(drv_en, HIGH);  //disable in between tests to allow reseting of physical position if need be. And to allow changing of settings.
-        if(short_stall >= 4 && short_stall <= 15) driver.s2vs_level(short_stall+1);
-        digitalWrite(drv_en, LOW);  //disable in between tests to allow reseting of physical position if need be. And to allow changing of settings.
-        stall_flag = 0;   //reset stall flag
+        digitalWrite(drv_en, HIGH);                                         //disable in between tests to allow reseting of physical position if need be. And to allow changing of settings.
+        if(short_stall >= 4 && short_stall <= 15) driver.s2vs_level(short_stall+1);       //increase low side short sensitivity setting, until only stalls trigger flag
+        digitalWrite(drv_en, LOW);                                          //disable in between tests to allow reseting of physical position if need be. And to allow changing of settings.
+        stall_flag = 0;                                                     //reset stall flag
       }
       
       //add temp measuring during pause between up and down motions
       if (driver.position_reached() == 1) {
-        delay(500);
-        driver.XTARGET(0);
-        stall_flag = 0;
+        delay(500);                                                         //Hold at position for .5 seconds before going back to starting position
+        driver.XTARGET(0);                                                  //move motor back to starting position
+        stall_flag = 0;                                                     //ensure stall flag is reset
       while (driver.position_reached() == 0) {
-        if(driver.stallguard()==1 && stall_flag == 0){
+        /* Temporary if statement to test functionality until library is updated */
+          if( ( (driver.DRV_STATUS() & 0x00001000) == 1 || (driver.DRV_STATUS() & 0x00002000) == 1) && stall_flag == 0){   
           stall_flag =1;
-          driver.XTARGET(driver.XACTUAL());
-          Serial.println(F("Motor stalled"));
+          Serial.println(F("Motor short circuit stalled"));
           break;
         }
+        
+        /*if( (driver.s2vsa() == 1 || driver.s2vsb() == 1) && stall_flag == 0){   
+          stall_flag =1;
+          Serial.println(F("Motor short circuit stalled"));
+          break;
+        }*/
+
           //include tstep reporting to tune for when best to implement stealth and spread cycle
           //use pwm sum to determine best speed for auto tuning, pwm sum needs to be as low as possible
-          //add skip step detection as well. exit autotune on skipped step988880
+          //add skip step detection as well. exit autotune on skipped step
         }
       }
 
-      if(autotune_average_optimize_cnt == 5) autotune_optimization_flag = 1;
+      if(autotune_average_optimize_cnt == 5) autotune_optimization_flag = 1;      //after 5 loops of stable autotune, stall and skipped steps detection exit loop
     }
-    read_registers();
-    Serial.println(F("autotune finished"));
+    read_registers();                                                             //read all registers to see what changed and by how much
+    Serial.println(F("autotune finished"));                                     
 
   }
-
-
-
-
 
   digitalWrite(drv_en, HIGH);  //disable in between tests to allow reseting of physical position if need be. And to allow changing of settings.
 
@@ -409,7 +419,7 @@ void setup() {
 
 void loop() {
   Serial.println("In loop");
-  while (1);
+  while (1);                    //debug message hold to know when program has exited setup routine.
 
 } //end of loop
 //end of loop
@@ -462,20 +472,9 @@ void read_registers(void)
     /* read of GSTAT */
       read_GSTAT_address();    
 
-    /*read off IOIN input status */{
-      Serial.println(F(""));
-      Serial.print(F("IOIN -> "));
-      Serial.println(driver.IOIN(), BIN);                                                         //display ioin register as binary
-      if (driver.refl_step() == 1)Serial.println(F("--refL input active"));
-      if (driver.refr_dir() == 1)Serial.println(F("--refR input active"));
-      if (driver.encb_dcen_cfg4() == 1)Serial.println(F("--encoder b input active"));
-      if (driver.enca_dcin_cfg5() == 1)Serial.println(F("--encoder a input active"));
-      //if (driver.drv_enn_cfg6() == 1)Serial.println(F("--drive enable input is active"));
-      //if (driver.enc_n_dco() == 1)Serial.println(F("--encoder index input active"));
-      if (driver.sd_mode() == 1)Serial.println(F("--step / direction mode input active"));
-      if (driver.swcomp_in() == 1)Serial.println(F("--sw comparator input active"));
-      Serial.print(F("--version -> ")); Serial.println(driver.version());
-    }
+    /*read off IOIN input status */
+      read_IOIN_address();
+
     /*read OFFSET_READ */{
       Serial.println(F(""));
       Serial.print(F("OFFSET_READ -> "));
@@ -568,26 +567,8 @@ void read_registers(void)
   }//display position x latch occurred
 
   /* Encoder registers */ {
-    /*read ENCMODE */{
-      Serial.println(F(""));
-      Serial.print(F("ENCMODE ->"));
-      Serial.println(driver.ENCMODE(), BIN);                                                      //display encmode as binary
-      if (driver.enc_sel_decimal() == 0)Serial.println(F("--encoder constant binary divisor counts * value / 65536"));
-      if (driver.enc_sel_decimal() == 1)Serial.println(F("--encoder constant decimal divisor counts * value / 10,000"));
-      if (driver.latch_x_act() == 1)Serial.println(F("--latch XACTUAL with X_ENC"));
-      if (driver.clr_enc_x() == 0)Serial.println(F("--index events latches X_ENC to ENC_LATCH"));
-      if (driver.clr_enc_x() == 1)Serial.println(F("--index events latches X_ENC to ENC_LATCH and then clears X_ENC value"));
-      if (driver.neg_edge() == 1)Serial.println(F("--N channel event triggers on inactive going N event"));
-      if (driver.pos_edge() == 1)Serial.println(F("--N channel event triggers on active going N event"));
-      if (driver.ignore_ab() == 0)Serial.println(F("--N event only occurs when pol N, pol a, pol b are correct polarity"));
-      if (driver.ignore_ab() == 1)Serial.println(F("--disregard a pol and b pol pulses"));
-      if (driver.pol_n() == 0)Serial.println(F("--N event on low pulse"));
-      if (driver.pol_n() == 1)Serial.println(F("--N event on high pulse"));
-      if (driver.pol_b() == 0)Serial.println(F("--b event on low pulse"));
-      if (driver.pol_b() == 1)Serial.println(F("--b event on high pulse"));
-      if (driver.pol_a() == 0)Serial.println(F("--a event on low pulse"));
-      if (driver.pol_a() == 1)Serial.println(F("--a event on high pulse"));
-    }
+    /*read ENCMODE */
+    read_ENCMODE_address();
     /* read X_ENC */
     Serial.println(F(""));
     Serial.print(F("Z_ENC ->"));
@@ -614,41 +595,9 @@ void read_registers(void)
   }
 
   /* Driver registers */ {
-    /* read CHOPCONF */{
-      Serial.println(F(""));
-      Serial.print(F("CHOPCONF ->"));
-      Serial.println(driver.CHOPCONF(), BIN);                                                     //display chopconf as binary
-      if (driver.diss2vs() == 0)Serial.println(F("--short to supply protection on"));
-      if (driver.diss2vs() == 1)Serial.println(F("--short to supply protection off"));
-      if (driver.diss2g() == 0)Serial.println(F("--short to ground protection on"));
-      if (driver.diss2g() == 1)Serial.println(F("--short to ground protection off"));
-      if (driver.dedge() == 0)Serial.println(F("--double edge step pulses disabled"));
-      if (driver.dedge() == 1)Serial.println(F("--double edge step pulses enabled"));
-      if (driver.intpol() == 0)Serial.println(F("--step pulse microstepping steps < 256"));
-      if (driver.intpol() == 1)Serial.println(F("--step pulse microstepping steps at 256 per full step"));
-      Serial.print(F("--multistep resolution ->"));
-      Serial.println(driver.mres(), DEC);                                                         //display how many micro steps
-      Serial.print(F("--Passive fast decay time ->"));   // compiler errors out
-      Serial.println(driver.tpfd(), DEC);
-      if (driver.vhighchm() == 0)Serial.println(F("--high velocity chopper disabled"));
-      if (driver.vhighchm() == 1)Serial.println(F("--high velocity chopper enabled.  triggers when VHIGH is exceeded"));
-      if (driver.vhighfs() == 0)Serial.println(F("--high velocity fullstep disabled"));
-      if (driver.vhighfs() == 1)Serial.println(F("--high velocity fullstep enabled. triggers when VHIGH is exceeeded"));
-      Serial.print(F("--PWM blanking time ->"));
-      Serial.println(driver.tbl(), DEC);                                                          //display blanking time
-      if (driver.chm() == 0)Serial.println(F("--Spread cycle active"));
-      if (driver.chm() == 1)Serial.println(F("--constant fast decay mode"));
-      if (driver.disfdcc() == 0)Serial.println(F("--current comparator termination enabled"));
-      if (driver.disfdcc() == 1)Serial.println(F("--current comparator termination disabled"));
-      if (driver.chm() == 0)Serial.print(F("--Hysteresis low value ->"));
-      if (driver.chm() == 1)Serial.print(F("--Sine wave offset ->"));
-      Serial.println(driver.hend(), DEC);                                                         //display hysteresis end value after selecting correct message based on chm
-      if (driver.chm() == 0)Serial.print(F("--Hysteresis start value ->"));
-      if (driver.chm() == 1)Serial.print(F("--Fst decay time ->"));
-      Serial.println(driver.hstrt(), DEC);                                                        //display hysteresis start value after selecting correct message based on chm
-      Serial.print(F("--Slow decay off time and driver enable ->"));
-      Serial.println(driver.toff(), DEC);                                                         //display pwm off time setting
-    }
+    /* read CHOPCONF */
+    read_CHOPCONF_address();
+
     /* read COOLCONF */{
       Serial.println(F(""));
       Serial.print(F("COOLCONF ->"));
@@ -676,23 +625,9 @@ void read_registers(void)
       Serial.print(F("--minimum smart current ->"));
       Serial.println(driver.semin(), DEC);
     }
-    /* read DRV_STATUS */ {
-      Serial.println(F(""));
-      Serial.print(F("DRV_STATUS ->"));
-      Serial.println(driver.DRV_STATUS(), BIN);                                                   //display driver status as binary
-      if (driver.stst() == 1)Serial.println(F("--Standstill"));                                      // state what driver status bits are active
-      if (driver.olb() == 1)Serial.println(F("--open load phase b"));
-      if (driver.ola() == 1)Serial.println(F("--open load phase a"));
-      if (driver.s2gb() == 1)Serial.println(F("--short to ground phase b"));
-      if (driver.s2ga() == 1)Serial.println(F("--short to ground phase a"));
-      if (driver.otpw() == 1)Serial.println(F("--over temp pre-warning"));
-      if (driver.ot() == 1)Serial.println(F("--over temp"));
-      if (driver.stallguard() == 1)Serial.println(F("--stall detected"));
-      if (driver.fsactive() == 1)Serial.println(F("--full steps active"));
-      //if(driver.stealth() == 1)Serial.println(F("--stealth chop is active"));             //library mssing these 3 for tmc5160
-      //if(driver.s2vsb() == 1)Serial.println(F("--short to vs phase b"));
-      //if(driver.s2vsa() == 1)Serial.println(F("--short to vs phase a"));
-    }
+    /* read DRV_STATUS */ 
+      read_DRV_STATUS_address();
+
     /* read PWM_SCALE */ {
       Serial.println(F(""));
       Serial.print(F("PWM_SCALE_SUM ->"));
@@ -700,30 +635,34 @@ void read_registers(void)
       Serial.print(F("PWM_SCALE_AUTO ->"));
       Serial.println(driver.pwm_scale_auto(), DEC);                                               //display pwm auto scale
     }
+
     /* read PWM_AUTO */ {
       Serial.print(F("PWM_OFS_AUTO ->"));
       Serial.println(driver.pwm_ofs_auto(), DEC);          //PWM_AUTO
       Serial.print(F("PWM_GRAD_AUTO ->"));
       Serial.println(driver.pwm_grad_auto(), DEC);
     }
-    /* read LOST_STEPS */
+
+    /* read LOST_STEPS */{
     Serial.println(F(""));
     Serial.print(F("LOST_STEPS ->"));
     Serial.println(driver.LOST_STEPS(), DEC);                                                   //display # of lost steps, most likely 0 due to no motion
+    }
   }
 
-  //display minimum setting for coolstep hysteresis
-  Serial.print(F("Running RMS current ->"));
-  Serial.println(driver.rms_current(), DEC);                                                    //display rms current
-  if (driver.stst() == 0)Serial.print(F("Lower value means high mechanical load ->"));
-  if (driver.stst() == 1)Serial.print(F("Motor temp at stand still ->"));
-  Serial.println(driver.sg_result(), DEC);                                                            //display stallguard status bits, can be used to read motor temp or mechanical load
-  Serial.println(F(""));
+  /*display measured load values (current, motor temp, and mechanical load)*/{
+    Serial.print(F("Running RMS current ->"));
+    Serial.println(driver.rms_current(), DEC);                                                    //display rms current
+    if (driver.stst() == 0)Serial.print(F("Lower value means high mechanical load ->"));
+    if (driver.stst() == 1)Serial.print(F("Motor temp at stand still ->"));
+    Serial.println(driver.sg_result(), DEC);                                                            //display stallguard status bits, can be used to read motor temp or mechanical load
+    Serial.println(F(""));
+  }
 } // end of read register
 //end of read register
 
 void read_GCONF_address(void){
-/* read off GCONF */{
+  /* read off GCONF */{
       Serial.println(F(""));
       Serial.print(F("GCONF -> "));
       Serial.println(driver.GCONF(), BIN);                                                        //display gconf registers as binary
@@ -770,16 +709,131 @@ void read_GSTAT_address(void){
       if (driver.drv_err() == 1)Serial.println(F("--over temp or short circuit fault. read drv_status for details"));
       if (driver.uv_cp() == 1)Serial.println(F("--undervoltage on charge pump detected"));
     }
-}
+}//end of read GSTAT
+//end of read GSTAT
 
+void read_IOIN_address(void){
+  /*read off IOIN input status */{
+      Serial.println(F(""));
+      Serial.print(F("IOIN -> "));
+      Serial.println(driver.IOIN(), BIN);                                                         //display ioin register as binary
+      if (driver.refl_step() == 1)Serial.println(F("--refL input active"));
+      if (driver.refr_dir() == 1)Serial.println(F("--refR input active"));
+      if (driver.encb_dcen_cfg4() == 1)Serial.println(F("--encoder b input active"));
+      if (driver.enca_dcin_cfg5() == 1)Serial.println(F("--encoder a input active"));
+      //if (driver.drv_enn_cfg6() == 1)Serial.println(F("--drive enable input is active"));
+      //if (driver.enc_n_dco() == 1)Serial.println(F("--encoder index input active"));
+      if (driver.sd_mode() == 1)Serial.println(F("--step / direction mode input active"));
+      if (driver.swcomp_in() == 1)Serial.println(F("--sw comparator input active"));
+      Serial.print(F("--version -> ")); Serial.println(driver.version());
+    }
+}//end of read IOIN
+//end of read IOIN
 
-void read_IOIN_address(void);
-void read_OFFSET_READ_address(void);
-void read_SW_MODE_address(void);
-void read_RAMP_STAT_address(void);
-void read_ENCMODE_address(void);
-void read_CHOPCONF_address(void);
-void read_DRV_STATUS_address(void);
+void read_OFFSET_READ_address(void){
+
+} //end of read OFFSET_READ
+//end of OFFSET_READ
+
+void read_SW_MODE_address(void){
+
+} //end of SW_MODE
+//end of SW_MODE
+
+void read_RAMP_STAT_address(void){
+
+} //end of RAMP_STAT
+//end of RAMP_STAT
+
+void read_ENCMODE_address(void){
+  /*read ENCMODE */{
+      Serial.println(F(""));
+      Serial.print(F("ENCMODE ->"));
+      Serial.println(driver.ENCMODE(), BIN);                                                      //display encmode as binary
+      if (driver.enc_sel_decimal() == 0)Serial.println(F("--encoder constant binary divisor counts * value / 65536"));
+      if (driver.enc_sel_decimal() == 1)Serial.println(F("--encoder constant decimal divisor counts * value / 10,000"));
+      if (driver.latch_x_act() == 1)Serial.println(F("--latch XACTUAL with X_ENC"));
+      if (driver.clr_enc_x() == 0)Serial.println(F("--index events latches X_ENC to ENC_LATCH"));
+      if (driver.clr_enc_x() == 1)Serial.println(F("--index events latches X_ENC to ENC_LATCH and then clears X_ENC value"));
+      if (driver.neg_edge() == 1)Serial.println(F("--N channel event triggers on inactive going N event"));
+      if (driver.pos_edge() == 1)Serial.println(F("--N channel event triggers on active going N event"));
+      if (driver.ignore_ab() == 0)Serial.println(F("--N event only occurs when pol N, pol a, pol b are correct polarity"));
+      if (driver.ignore_ab() == 1)Serial.println(F("--disregard a pol and b pol pulses"));
+      if (driver.pol_n() == 0)Serial.println(F("--N event on low pulse"));
+      if (driver.pol_n() == 1)Serial.println(F("--N event on high pulse"));
+      if (driver.pol_b() == 0)Serial.println(F("--b event on low pulse"));
+      if (driver.pol_b() == 1)Serial.println(F("--b event on high pulse"));
+      if (driver.pol_a() == 0)Serial.println(F("--a event on low pulse"));
+      if (driver.pol_a() == 1)Serial.println(F("--a event on high pulse"));
+    }
+} //end of ENCMODE
+//end of ENCMODE
+
+void read_CHOPCONF_address(void){
+  /* read CHOPCONF */{
+      Serial.println(F(""));
+      Serial.print(F("CHOPCONF ->"));
+      Serial.println(driver.CHOPCONF(), BIN);                                                     //display chopconf as binary
+      if (driver.diss2vs() == 0)Serial.println(F("--short to supply protection on"));
+      if (driver.diss2vs() == 1)Serial.println(F("--short to supply protection off"));
+      if (driver.diss2g() == 0)Serial.println(F("--short to ground protection on"));
+      if (driver.diss2g() == 1)Serial.println(F("--short to ground protection off"));
+      if (driver.dedge() == 0)Serial.println(F("--double edge step pulses disabled"));
+      if (driver.dedge() == 1)Serial.println(F("--double edge step pulses enabled"));
+      if (driver.intpol() == 0)Serial.println(F("--step pulse microstepping steps < 256"));
+      if (driver.intpol() == 1)Serial.println(F("--step pulse microstepping steps at 256 per full step"));
+      Serial.print(F("--multistep resolution ->"));
+      Serial.println(driver.mres(), DEC);                                                         //display how many micro steps
+      Serial.print(F("--Passive fast decay time ->"));   // compiler errors out
+      Serial.println(driver.tpfd(), DEC);
+      if (driver.vhighchm() == 0)Serial.println(F("--high velocity chopper disabled"));
+      if (driver.vhighchm() == 1)Serial.println(F("--high velocity chopper enabled.  triggers when VHIGH is exceeded"));
+      if (driver.vhighfs() == 0)Serial.println(F("--high velocity fullstep disabled"));
+      if (driver.vhighfs() == 1)Serial.println(F("--high velocity fullstep enabled. triggers when VHIGH is exceeeded"));
+      Serial.print(F("--PWM blanking time ->"));
+      Serial.println(driver.tbl(), DEC);                                                          //display blanking time
+      if (driver.chm() == 0)Serial.println(F("--Spread cycle active"));
+      if (driver.chm() == 1)Serial.println(F("--constant fast decay mode"));
+      if (driver.disfdcc() == 0)Serial.println(F("--current comparator termination enabled"));
+      if (driver.disfdcc() == 1)Serial.println(F("--current comparator termination disabled"));
+      if (driver.chm() == 0)Serial.print(F("--Hysteresis low value ->"));
+      if (driver.chm() == 1)Serial.print(F("--Sine wave offset ->"));
+      Serial.println(driver.hend(), DEC);                                                         //display hysteresis end value after selecting correct message based on chm
+      if (driver.chm() == 0)Serial.print(F("--Hysteresis start value ->"));
+      if (driver.chm() == 1)Serial.print(F("--Fst decay time ->"));
+      Serial.println(driver.hstrt(), DEC);                                                        //display hysteresis start value after selecting correct message based on chm
+      Serial.print(F("--Slow decay off time and driver enable ->"));
+      Serial.println(driver.toff(), DEC);                                                         //display pwm off time setting
+    }
+} //end of CHOPCONF
+//end of CHOPCONF
+
+void read_DRV_STATUS_address(void){
+  /* read DRV_STATUS */ {
+      Serial.println(F(""));
+      Serial.print(F("DRV_STATUS ->"));
+      Serial.println(driver.DRV_STATUS(), BIN);                                                   //display driver status as binary
+      if (driver.stst() == 1)Serial.println(F("--Standstill"));                                      // state what driver status bits are active
+      if (driver.olb() == 1)Serial.println(F("--open load phase b"));
+      if (driver.ola() == 1)Serial.println(F("--open load phase a"));
+      if (driver.s2gb() == 1)Serial.println(F("--short to ground phase b"));
+      if (driver.s2ga() == 1)Serial.println(F("--short to ground phase a"));
+      if (driver.otpw() == 1)Serial.println(F("--over temp pre-warning"));
+      if (driver.ot() == 1)Serial.println(F("--over temp"));
+      if (driver.stallguard() == 1)Serial.println(F("--stall detected"));
+      if (driver.fsactive() == 1)Serial.println(F("--full steps active"));
+      //if(driver.stealth() == 1)Serial.println(F("--stealth chop is active"));             //library missing these 3 for tmc5160
+      //if(driver.s2vsb() == 1)Serial.println(F("--short to vs phase b"));
+      //if(driver.s2vsa() == 1)Serial.println(F("--short to vs phase a"));
+
+      /* Temporary function read until library gets updated */
+      if( (driver.DRV_STATUS() & 0x00004000) == 1)Serial.println(F("--stealth chop is active"));
+      if( (driver.DRV_STATUS() & 0x00002000) == 1)Serial.println(F("--short to vs phase b"));
+      if( (driver.DRV_STATUS() & 0x00001000) == 1)Serial.println(F("--short to vs phase a"));
+
+    }
+} //end of read DRV_STATUS
+//end of DRV_STATUS
 
 
 
