@@ -1,0 +1,6 @@
+{
+    "terminal.integrated.env.windows": {
+        "PATH": "C:\\Users\\Micro Reaper\\.platformio\\penv\\Scripts;C:\\Users\\Micro Reaper\\.platformio\\penv;F:\\AVR STUDIO\\BIN;F:\\AVR STUDIO\\UTILS\\BIN;C:\\PROGRAM FILES (X86)\\ROCKWELL SOFTWARE\\RSCOMMON;C:\\WINDOWS\\SYSTEM32;C:\\WINDOWS;C:\\WINDOWS\\SYSTEM32\\WBEM;C:\\WINDOWS\\SYSTEM32\\WINDOWSPOWERSHELL\\V1.0\\;C:\\PROGRAM FILES (X86)\\AMD\\ATI.ACE\\CORE-STATIC;C:\\PROGRAM FILES (X86)\\NVIDIA CORPORATION\\PHYSX\\COMMON;C:\\Program Files\\NVIDIA Corporation\\NVIDIA NvDLISR;F:\\Git\\cmd;F:\\Python\\Scripts\\;F:\\Python\\;C:\\Windows\\System32;F:\\Microsoft VS Code\\bin;F:\\AVR STUDIO\\BIN;F:\\AVR STUDIO\\UTILS\\BIN;C:\\PROGRAM FILES (X86)\\ROCKWELL SOFTWARE\\RSCOMMON;C:\\WINDOWS\\SYSTEM32;C:\\WINDOWS;C:\\WINDOWS\\SYSTEM32\\WBEM;C:\\WINDOWS\\SYSTEM32\\WINDOWSPOWERSHELL\\V1.0\\;C:\\PROGRAM FILES (X86)\\AMD\\ATI.ACE\\CORE-STATIC;C:\\PROGRAM FILES (X86)\\NVIDIA CORPORATION\\PHYSX\\COMMON;C:\\Program Files\\NVIDIA Corporation\\NVIDIA NvDLISR;F:\\Git\\cmd;F:\\Python\\Scripts\\;F:\\Python\\;C:\\Windows\\System32;F:\\Microsoft VS Code\\bin",
+        "PLATFORMIO_CALLER": "vscode"
+    }
+}
