@@ -220,7 +220,7 @@ void setup() {
     read_registers();                       //Read all TMC5160 readable registers. Should read initial power presets or last configuration.
     Serial.println("");                     //add a new line to separate information
     Serial.println(F("Initial drive start up register reading."));
-    delay(60000);                           //allow some reading time
+    delay(10000);                           //allow some reading time
 
     digitalWrite(drv_en, HIGH);             //disable drive to clear any start up faults
     delay(1000);                            //give the drive some time to clear faults
@@ -303,7 +303,7 @@ void setup() {
     read_registers();               //Read all TMC5160 readable registers. Should read initial power presets or last configuration.
     Serial.println("");             //add a new line to separate information
     Serial.println(F("First motion register reading to see if parameters were set."));
-    delay(30000);                   //wait 30 seconds to allow for reading settings
+    delay(5000);                   //wait 30 seconds to allow for reading settings
 
     /*Perform zero crossing calibration. No idea what it does, I just do it act as a starting point.*/
     digitalWrite(drv_en, HIGH);     //disable the driver to clear short circuit fault
@@ -317,7 +317,7 @@ void setup() {
     read_registers();               //Read all TMC5160 readable registers. Should read initial power presets or last configuration.
     Serial.println("");             //add a new line to separate information
     Serial.println(F("First motion register reading to see if pre motion faults were cleared."));
-    delay(30000);                   //wait 30 seconds to allow for reading settings
+    delay(5000);                   //wait 30 seconds to allow for reading settings
 
     /*Now lets start the first actual move to see if everything worked, and to hear what the stepper sounds like.*/
     if (driver.position_reached() == 1) driver.XTARGET((100 / motor_mm_per_microstep));     //verify motor is at starting position, then move motor equivalent to 100mm
@@ -325,6 +325,8 @@ void setup() {
     if (driver.position_reached() == 1) driver.XTARGET(0);                                  //verify motor is at position, then move motor back to starting position
     while (driver.position_reached() == 0);                                                 //while in motion do nothing. This prevents the code from missing actions
   }
+
+  delay(5000);                     //a pause between operations, not needed but I wanted.
 
   /*Silent step and autotuning*/{
     /* stealth settings */ {
@@ -380,9 +382,9 @@ void setup() {
         //add skip step detection as well. exit autotune on skipped step
       }
 
-      Serial.println(F("Max tstep time recorded -> "));
+      Serial.print(F("Max tstep time recorded -> "));
       Serial.println(tstep_max);                                            //display measured max step time  
-      Serial.println(F("Min tstep time recorded -> "));
+      Serial.print(F("Min tstep time recorded -> "));
       Serial.println(tstep_min);                                            //display measured min step time
 
       if( stall_flag ==1 ){
@@ -396,8 +398,8 @@ void setup() {
       
       //add temp measuring during pause between up and down motions
       if (driver.position_reached() == 1) {
-        Serial.println(F("Starting motion forward"));
-        delay(500);                                                         //Hold at position for .5 seconds before going back to starting position
+        delay(5000);                                                         //Hold at position for .5 seconds before going back to starting position
+        Serial.println(F("Starting motion reverse"));
         driver.XTARGET(0);                                                  //move motor back to starting position
         stall_flag = 0;                                                     //ensure stall flag is reset
       while (driver.position_reached() == 0) {
