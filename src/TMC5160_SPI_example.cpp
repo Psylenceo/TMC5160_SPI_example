@@ -129,6 +129,8 @@ float  nominal_amps = ( ((motor_milliamps * motor_voltage) / supply_voltage) * 1
        drv_pwm_ofs = ( (374 * motor_resistance * (nominal_amps / 1000)) / supply_voltage),                      //calculate teh pwm offest
        driv_toff = ( 3/*really_small_number * drv_clock / 10(((1 / drv_chop_freq) * (drv_decay_percent / 100) * .5) * drv_clock - 12) / 32*/ ); //calculatethe toff of the motor, currently does not calculate value
 
+double sample;                              //value for when terminal samples values
+
 float pwm_sum_base,                           //base pwm sum value to be tested in autotune to find optimal set points
       pwm_sum_tune;                           //pwm sum value while in the loop for set point optimization
 
@@ -234,10 +236,11 @@ void setup() {
 
     /* short circuit monitoring */
     {
+      //driver.GLOBAL_SCALER(128);             //adjust this for the current scale you ae using
       driver.diss2vs(0);                    //driver monitors for short to supply
-      driver.s2vs_level(12);
+      driver.s2vs_level(4);
       driver.diss2g(0);                     //driver to monitor for short to ground
-      driver.s2g_level(12);
+      driver.s2g_level(4);
     }
 
     /* base GCONF settings for bare stepper driver operation*/    {
@@ -350,9 +353,11 @@ void setup() {
     driver.XTARGET(100);                                                    //move motor 100 micro steps
     delay(200);                                                             //delay 1 full step cycle to get current measurement
     while (autotune_optimization_flag == 0) {
+      delay(5000);
       Serial.println(F("Starting motion forward"));
       if (driver.position_reached() == 1) driver.XTARGET((200 / motor_mm_per_microstep));   //if motor in position command a 200 mm move
-      stall_flag = 0;                                                       //reset stall flag
+      stall_flag = 0;
+      sample = 10;                                                       //reset stall flag
       while (driver.position_reached() == 0) {
         /*****
          * softstop
@@ -374,7 +379,15 @@ void setup() {
           Serial.println(F("Motor short circuit stalled"));
           break;
         }*/
-        
+        if(driver.XACTUAL() == (sample / motor_mm_per_microstep)){
+          Serial.print(F("Running RMS current ->"));
+          Serial.println(driver.rms_current(), DEC);
+          sample = (sample + 10);
+          Serial.print(F("Lower value means high mechanical load ->"));
+          Serial.println(driver.sg_result(), DEC);                                                            //display stallguard status bits, can be used to read motor temp or mechanical load
+          Serial.println(F(""));
+        }
+
         if( driver.TSTEP() > tstep_max ) tstep_max = driver.TSTEP();        //while motor is moving, measure tstep max step time              
         if( driver.TSTEP() < tstep_min ) tstep_min = driver.TSTEP();        //while motor is moving, measure tstep min step time
         
@@ -385,7 +398,8 @@ void setup() {
       Serial.print(F("Max tstep time recorded -> "));
       Serial.println(tstep_max);                                            //display measured max step time  
       Serial.print(F("Min tstep time recorded -> "));
-      Serial.println(tstep_min);                                            //display measured min step time
+      Serial.println(tstep_min);
+      Serial.println(F(""));                                            //display measured min step time
 
       if( stall_flag ==1 ){
         digitalWrite(drv_en, HIGH);                                         //disable in between tests to allow reseting of physical position if need be. And to allow changing of settings.
@@ -408,6 +422,15 @@ void setup() {
           stall_flag =1;
           Serial.println(F("Motor short circuit stalled"));
           break;
+        }
+        
+        if(driver.XACTUAL() == (sample / motor_mm_per_microstep)){
+          Serial.print(F("Running RMS current ->"));
+          Serial.println(driver.rms_current(), DEC);
+          sample = (sample + 10);
+          Serial.print(F("Lower value means high mechanical load ->"));
+          Serial.println(driver.sg_result(), DEC);                                                            //display stallguard status bits, can be used to read motor temp or mechanical load
+          Serial.println(F(""));
         }
         
         /*if( (driver.s2vsa() == 1 || driver.s2vsb() == 1) && stall_flag == 0){   
