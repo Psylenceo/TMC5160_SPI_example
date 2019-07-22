@@ -284,6 +284,11 @@ void setup() {
     1,000 counts and divide this distance by 1,000. This will get you how many
     millimeters per microstep. This value will then need to be added in the define
     near the top of this code
+
+    @ 12MHz clock, a 1.8 motor using 256 micro steps, driver output top speed is:
+     7500 RPM / 125 RPS / 45,000 deg/sec 
+     Which takes 1.5 second from 0 rpm to 7500 RPM at an AMAX setting of 65156.
+      
   *************************************************************/
 
   /* Ramp mode (default)*/{
@@ -497,7 +502,7 @@ void base_calc_values(void) {
   Serial.print(F("Calculated PMW off time initializer -> "));
   Serial.println(driv_toff);
   Serial.print(F("Drive PWM_SCALE_SUM calculation -> "));
-  Serial.println( (drv_pwm_ofs + drv_pwm_grad * 256 * (drv_chop_freq / drv_clock)) );
+  Serial.println( (drv_pwm_ofs + drv_pwm_grad * .7488) );   //The .7488 = 256 * (step frequency / clock freq)
 } //end of base calc
 //end of base calc
 
