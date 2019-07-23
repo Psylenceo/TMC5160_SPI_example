@@ -129,7 +129,8 @@ float  nominal_amps = ( ((motor_milliamps * motor_voltage) / supply_voltage) * 1
        drv_pwm_ofs = ( (374 * motor_resistance * (nominal_amps / 1000)) / supply_voltage),                      //calculate teh pwm offest
        driv_toff = ( 3/*really_small_number * drv_clock / 10(((1 / drv_chop_freq) * (drv_decay_percent / 100) * .5) * drv_clock - 12) / 32*/ ); //calculatethe toff of the motor, currently does not calculate value
 
-double sample;                              //value for when terminal samples values
+double sample,                              //value for when terminal samples values
+       step_tune_match;                      //counting number of steps during stage 1 autotune        
 
 float pwm_sum_base,                           //base pwm sum value to be tested in autotune to find optimal set points
       pwm_sum_tune;                           //pwm sum value while in the loop for set point optimization
@@ -141,10 +142,13 @@ int autotune_optimized_up_cnt,                //variable to count how many times
     autotune_optimized_dn_cnt,                //variable to count how many times the down autotune has resulted in optimal value of pwm sum
     autotune_average_optimize_cnt,            //variable for when we try to optimize the pwm sum for both up and down.
     short_stall = 4,                          //variable for tuning short circuit detection stall detect in stealth mode
-    sgl = 0;                                  //variable for tuning stall guard
+    sgl = 0,                                  //variable for tuning stall guard
+    cs,                                       //variable used during cs = irun stage of autotune
+    run_current;                              //variable used during cs = irun stage of autotune
 
 bool autotune_optimization_flag,              //this flag will go high once autotune optimization is complete or pwm_sum_tune is the lowest it can get for a given number auto tune loops
-     stall_flag;                              //flag for when motor is stalled
+     stall_flag,                              //flag for when motor is stalled
+     matched;                                 //"flag" indicating that CS and IRun are equal during autotune start up
       
 
 /***********************************************************
@@ -154,6 +158,7 @@ bool autotune_optimization_flag,              //this flag will go high once auto
    PWM gradient -> 58.2 (the register will round down to 58)
    PWM starting offset -> 93.5 (this one may round up or down)
    Toff -> 3.36 (so toff should be set to 3 or 4, may need some testing)
+
    Now that we have our initializers calculated we need to tell
    the arduino what driver we are using and and give the register points
    a prefix. This is needed, but is useful when multiple motors are
@@ -199,16 +204,16 @@ void read_motor_performance(void);               //prototype
 
 
 void setup() {
-  /* start up uart config as PC interface*/{
-    Serial.begin(115200);               //serial com at 115200 baud
-    while (!Serial);                    //wait for the arduino to detect an open com port
-    Serial.println("Start...");         //com port is open, send 1st mesage
-    Serial.println("");                 //add a new line to separate information
-    base_calc_values();                 //readout the define calculations
-    delay(10000);                        //wait 20 seconds so user can read values
+  /* start up uart config as PC interface */{
+    Serial.begin(115200);                   //serial com at 115200 baud
+    while (!Serial);                        //wait for the arduino to detect an open com port
+    Serial.println("Start...");             //com port is open, send 1st mesage
+    Serial.println("");                     //add a new line to separate information
+    base_calc_values();                     //readout the defined calculations
+    delay(10000);                           //wait 20 seconds so user can read values
   }
 
-  /* start up SPI config and axis IO interfacing*/{
+  /* start up SPI, configure SPI, and axis IO interfacing*/{
     SPI.begin();                            //stat spi
     pinMode(sck, OUTPUT);                   //set sck pin as output for spi clock
     pinMode(ss, OUTPUT);                    //set ss pin as an out put for chip select
@@ -220,28 +225,32 @@ void setup() {
   /*Initial settings for basic SPI command stepper drive no other functions enabled*/ {
     driver.begin();                         // start the tmc library
 
-    read_registers();                       //Read all TMC5160 readable registers. Should read initial power presets or last configuration.
-    Serial.println("");                     //add a new line to separate information
-    Serial.println(F("Initial drive start up register reading."));
-    delay(5000);                           //allow some reading time
+    /* Inital register read */ {
+      Serial.println("");                     //add a new line to separate information
+      Serial.println(F("Initial drive start up register reading."));
+      read_registers();                       //Read all TMC5160 readable registers. Should read initial power presets or last configuration.
+      delay(5000);                            //allow some reading time
+    }
 
-    digitalWrite(drv_en, HIGH);             //disable drive to clear any start up faults
-    delay(1000);                            //give the drive some time to clear faults
-    digitalWrite(drv_en, LOW);              //re-enable drive, to start loading in parameters
-    driver.toff(0);                         //attempt to clear ground faults on start-up
-    driver.GSTAT(0b111);                    //clear gstat faults
-    read_DRV_STATUS_address();
-    read_GSTAT_address();
+    /* Reseting drive faults and re-enabling drive */ {
+      digitalWrite(drv_en, HIGH);             //disable drive to clear any start up faults
+      delay(1000);                            //give the drive some time to clear faults
+      digitalWrite(drv_en, LOW);              //re-enable drive, to start loading in parameters
+      driver.toff(0);                         //attempt to clear ground faults on start-up
+      driver.GSTAT(7);                        //clear gstat faults
+      read_DRV_STATUS_address();              //read out DRiver status to verify ground faults re cleared
+      read_GSTAT_address();                   //read out GSTAT to verify its faults are cleared.
+    }
 
+    /* Set operation current limits */
     driver.rms_current(nominal_amps, 1);    //set Irun and Ihold for the drive
 
-    /* short circuit monitoring */
-    {
-      //driver.GLOBAL_SCALER(128);             //adjust this for the current scale you ae using
+    /* short circuit monitoring */    {
+      //driver.GLOBAL_SCALER(128);             //adjust this for the current scale you are using
       driver.diss2vs(0);                    //driver monitors for short to supply
-      driver.s2vs_level(4);
+      driver.s2vs_level(6);                 //lower values set drive to be very sensitive to low side voltage swings
       driver.diss2g(0);                     //driver to monitor for short to ground
-      driver.s2g_level(4);
+      driver.s2g_level(6);                  //lower values set drive to be very sensitive to high side voltage swings
     }
 
     /* base GCONF settings for bare stepper driver operation*/    {
@@ -257,13 +266,14 @@ void setup() {
   }
 
   /* minimum settings to to get a motor moving using SPI commands */{
-    driver.tbl(0b10);                       //set blanking time to 24
+    driver.tbl(2);                          //set blanking time to 24
     driver.toff(driv_toff);                 //pwm off time factor
-    driver.pwm_freq(0b01);                  //pwm at 35.1kHz
+    driver.pwm_freq(1);                     //pwm at 35.1kHz
 
+    /* need to verify if stall guard settings need set prior to initial move */
     driver.sgt(0);                          //stallguard sensitivity
     driver.sfilt(0);                        //stallguard filtering on
-    driver.sg_stop(1);                      //stallguard event stop enabled
+    driver.sg_stop(0);                      //stallguard event stop enabled
   }
 
   /************************************************************
@@ -272,12 +282,13 @@ void setup() {
     what ramp mode you want to test in
     what your start and stop velocities are going to be
     what your accel, deccel, and velocities ar going to be
-    and what kind of units your serial commands ae going to be
+    and what kind of units your serial commands are going to be
     RPM (rotations per minute) use rpm(####);
     RPS (rotations per second) use rps(####);
     mm/s (millimeters per second) use mm_per_sec(####);
     or just plain old counts where a command of 51200, will get you
     one full revolution on a 1.8 degree stepper motor.
+
     Note: using mm/s mode, you will first have to calculate you mm to counts
     scaling. Start with a reference point and a fixed surface, measure the distance
     then send a counts command of 1,000. Remeasure from you reference point to the
@@ -294,8 +305,8 @@ void setup() {
 
   /* Ramp mode (default)*/{
     driver.RAMPMODE(0);             //set ramp mode to positioning
-    driver.VSTOP(100);              //set stop velocity to 100 steps/sec
-    driver.VSTART(100);             //set start velocity to 100 steps/sec
+    driver.VSTOP(10);              //set stop velocity to 10 steps/sec
+    driver.VSTART(10);             //set start velocity to 10 steps/sec
 
     driver.V1(204800);               //midpoint velocity to  steps/sec ( steps/sec)
     driver.VMAX(204800);             //max velocity to  steps/sec ( steps/sec)
@@ -309,9 +320,9 @@ void setup() {
 
   /*First motion*/{
     /*Now that all the minimum settings to get a TMC5160 are set, well read all the registers again, to check settings*/
-    read_registers();               //Read all TMC5160 readable registers. Should read initial power presets or last configuration.
     Serial.println("");             //add a new line to separate information
     Serial.println(F("First motion register reading to see if parameters were set."));
+    read_registers();               //Read all TMC5160 readable registers. Should read initial power presets or last configuration.
     delay(1000);                   //wait 30 seconds to allow for reading settings
 
     /*Perform zero crossing calibration. No idea what it does, I just do it act as a starting point.*/
@@ -323,9 +334,9 @@ void setup() {
     driver.GSTAT(0b111);            //clear gstat faults
 
     /*Read all registers again see that GSTAT has cleared, and to make sure some of the other faults are cleared as well.*/
-    read_registers();               //Read all TMC5160 readable registers. Should read initial power presets or last configuration.
     Serial.println("");             //add a new line to separate information
     Serial.println(F("First motion register reading to see if pre motion faults were cleared."));
+    read_registers();               //Read all TMC5160 readable registers. Should read initial power presets or last configuration.
     delay(5000);                   //wait 30 seconds to allow for reading settings
 
     /*Now lets start the first actual move to see if everything worked, and to hear what the stepper sounds like.*/
@@ -338,33 +349,94 @@ void setup() {
   delay(5000);                     //a pause between operations, not needed but I wanted.
 
   /*Silent step and autotuning*/{
+    /******************************************************
+     * autotune procedure as per datasheet 
+     * 
+     * AT#1 motor needs to be in stand still and actual current scale (CS) = run current (Irun)
+     *        if standstill reduction is enabled, perform an inital step to bring drive back to run current level,
+     *          or set IHOLD = IRUN
+     *        VS pin needs to be at supply voltage
+     *    Recommended-> to use reduced standstill current IHOLD < IRUN to prevent low chopper frequencies for extended time while tuning
+     *    Required duration ~130ms
+     * 
+     * AT#1 conditions will result in PWM_OFS_AUTO value
+     * 
+     * AT#2 move motor at a velocity the uses full run current and produces enough EMF that the drive can measure it. (Typically 60 -300 RPM) (typically 71583 - 357914 counts/sec)
+     *      (1.5 * PWM_OFS_AUTO) < PWM_SCALE_SUM < (4 * PWM_OFS_AUTO)
+     *      PWM_SCALE_SUM < 255
+     *     Required -> a minimum of 8 FULL steps. For optimum PWM_GRAD_AUTO of < 50, upto 400 FULL steps may be needed.
+     * 
+     * AT#2 conditions will result in PWM_GRAD_AUTO value
+     * 
+     * 1) Set IHOLD = IRUN (this currently done at startup)
+     * 2) adjust motor position to until CS = IRUN
+     *    a) monitor CS to ensure it matches IRUN
+     * 3) delay 250ms to give ample stage 1 time
+     * 4) set velocity to 6 counts/s and perform a minimum of 10 full steps in 2 step increments with a stand still in between
+     * 5) verify that PWM_SCALE_SUM is between 1.5 - 4 times what PWM_OFS_AUTO is and less than 255. Adjust until in range if possible.
+     * 6) move motor between 8 and 400 full steps, or until PWM_GRAD_AUTO <= 50
+     * 
+     * If GLOBALSCALAR or VS is changed autotune will need to be redone.
+     * 
+     * Autotuning is current feedback (settings pwm_autoscale =1 and pwm_autograd =1)
+     * Feed forward velocity controlledmode (pwm_autoscale =0)
+     * 
+     * Drive status Open load a and b during tuning  either indicate that current regulation did not reach max within the last few fullsteps (no motor or velocity > PWM limit)
+     * 
+     * PWM_SCALE_SUM can be used to check coil resistance.
+     * 
+     * While in motion, PWM_SCALE_SUM can be used as an indicator if full load motor current regulator can sustain the current or not
+     * 
+     * PWM_SCALE_AUTO will approach 0 during tuning.
+    ******************************************************/
+    
     /* stealth settings */ {
       driver.en_pwm_mode(1);                                                  // silent step enable
       driver.TPWMTHRS(75);                                                    //65 decent point to avoid skips and mechanical load noise near top when and while moving down
-      driver.pwm_lim(29);                                                     //sets the pwm voltage limit
+      //driver.pwm_reg(4);                                                      //responsiveness of stealth chop PWM amplitude adjustment
+      //driver.pwm_lim(29);                                                     //sets the current jerk when switching between spread cycle and stealth chop
       driver.pwm_autoscale(0);                                                //automatic current scaling
       driver.pwm_autograd(0);                                                 //automatic tuning
       driver.pwm_ofs(drv_pwm_ofs);                                            //user calculated pwm amplitude offset
       driver.pwm_grad(drv_pwm_grad);                                          //velocity pwm gradual
       //driver.freewheel(0);                                                  //0 hold current action
     }
-
+    
     /* Change short circuit detection level to super sensitive to act as stall detection during autotune and stealth chop */{
       driver.s2vs_level(short_stall);   //set the low side short circuit detection to be over sensitive to in an attempt act as a stallguard during stealth mode
     }
 
-    Serial.println(F("Starting stealth chop autotune"));
-    driver.pwm_autoscale(1);                                                //automatic current scaling
-    delay(360);                                                             //delay for 2 full step cycles to allow settling
-    driver.XTARGET(100);                                                    //move motor 100 micro steps
-    delay(200);                                                             //delay 1 full step cycle to get current measurement
-    while (autotune_optimization_flag == 0) {
-      delay(5000);
-      Serial.println(F("Starting motion forward"));
-      if (driver.position_reached() == 1) driver.XTARGET((200 / motor_mm_per_microstep));   //if motor in position command a 200 mm move
-      stall_flag = 0;
-      sample = 10;                                                       //reset stall flag
-      while (driver.position_reached() == 0) {
+    /* Initiate autotune */ {
+      Serial.println(F("Starting stealth chop autotune"));
+      driver.pwm_autoscale(1);                                                //automatic current scaling
+      delay(360);                                                             //delay for 2 full step cycles to allow settling
+    }
+
+    /* Autotune stage 1 (AT#1) */{
+      cs = driver.cs_actual();                                                //store the value of cs
+      run_current = driver.irun();                                            //store the value of irun
+      driver.VMAX(6);                                                         //set drive to run motor at 6Hz to perform stage 1 autotune
+
+      while( (cs != run_current) && matched != 1) {                           //adjust the motor until cs = irun
+        driver.XTARGET(2);                                                    //move motor 1 micro step
+        while(driver.position_reached() == 0);                                //wait until move complete
+        delay(200);                                                           //wait for current settling
+        cs = driver.cs_actual();                                              //store the value of cs
+        run_current = driver.irun();                                          //store the value of irun
+        if(cs == run_current && step_tune_match == 200) matched = 1;          //when cs = irun and there has been a series of step increases thenexit loop
+        step_tune_match++;                                                    //increment until designated number of tunes have been completed
+      }
+    }
+
+    Serial.println(F("Autotune stage 1 complete"));
+
+    /* Autotune stage 2 (AT#2) */ {
+      while (autotune_optimization_flag == 0) {
+        Serial.println(F("Starting motion forward"));
+        if (driver.position_reached() == 1) driver.XTARGET((200 / motor_mm_per_microstep));   //if motor in position command a 200 mm move
+        stall_flag = 0;
+        sample = 10;                                                       //reset stall flag
+        while (driver.position_reached() == 0) {
         /*****
          * softstop
          * sg_stop
@@ -454,6 +526,7 @@ void setup() {
       }
 
       if(autotune_average_optimize_cnt == 5) autotune_optimization_flag = 1;      //after 5 loops of stable autotune, stall and skipped steps detection exit loop
+    }
     }
     read_registers();                                                             //read all registers to see what changed and by how much
     Serial.println(F("autotune finished"));                                     
