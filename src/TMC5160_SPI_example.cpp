@@ -140,7 +140,8 @@ uint32_t tstep_min = 1048575,                 //minimum tstep value to assist in
 int autotune_optimized_up_cnt,                //variable to count how many times the up autotune has resulted in the optimal value of pwm sum
     autotune_optimized_dn_cnt,                //variable to count how many times the down autotune has resulted in optimal value of pwm sum
     autotune_average_optimize_cnt,            //variable for when we try to optimize the pwm sum for both up and down.
-    short_stall = 4;                          //variable for tuning short circuit detection stall detect in stealth mode
+    short_stall = 4,                          //variable for tuning short circuit detection stall detect in stealth mode
+    sgl = 0;                                  //variable for tuning stall guard
 
 bool autotune_optimization_flag,              //this flag will go high once autotune optimization is complete or pwm_sum_tune is the lowest it can get for a given number auto tune loops
      stall_flag;                              //flag for when motor is stalled
@@ -204,7 +205,7 @@ void setup() {
     Serial.println("Start...");         //com port is open, send 1st mesage
     Serial.println("");                 //add a new line to separate information
     base_calc_values();                 //readout the define calculations
-    delay(20000);                        //wait 20 seconds so user can read values
+    delay(10000);                        //wait 20 seconds so user can read values
   }
 
   /* start up SPI config and axis IO interfacing*/{
@@ -222,7 +223,7 @@ void setup() {
     read_registers();                       //Read all TMC5160 readable registers. Should read initial power presets or last configuration.
     Serial.println("");                     //add a new line to separate information
     Serial.println(F("Initial drive start up register reading."));
-    delay(10000);                           //allow some reading time
+    delay(5000);                           //allow some reading time
 
     digitalWrite(drv_en, HIGH);             //disable drive to clear any start up faults
     delay(1000);                            //give the drive some time to clear faults
@@ -286,7 +287,7 @@ void setup() {
     near the top of this code
 
     @ 12MHz clock, a 1.8 motor using 256 micro steps, driver output top speed is:
-     7500 RPM / 125 RPS / 45,000 deg/sec 
+     7500 RPM / 125 RPS / 45,000 deg/sec / 1,277 mm/sec
      Which takes 1.5 second from 0 rpm to 7500 RPM at an AMAX setting of 65156.
       
   *************************************************************/
@@ -296,14 +297,14 @@ void setup() {
     driver.VSTOP(100);              //set stop velocity to 100 steps/sec
     driver.VSTART(100);             //set start velocity to 100 steps/sec
 
-    driver.V1(51200);               //midpoint velocity to  steps/sec ( steps/sec)
-    driver.VMAX(51200);             //max velocity to  steps/sec ( steps/sec)
+    driver.V1(204800);               //midpoint velocity to  steps/sec ( steps/sec)
+    driver.VMAX(204800);             //max velocity to  steps/sec ( steps/sec)
 
-    driver.A1(25600);               //initial accel at  steps/sec2 ( steps/sec2)
-    driver.AMAX(25600);             //max accel at  steps/sec2 ( steps/sec2)
+    driver.A1(51200);               //initial accel at  steps/sec2 ( steps/sec2)
+    driver.AMAX(51200);             //max accel at  steps/sec2 ( steps/sec2)
 
-    driver.DMAX(25600);             //max deccel  steps/sec2 ( steps/sec2)
-    driver.D1(25600);               //mid deccel  steps/sec2 ( steps/sec2)
+    driver.DMAX(51200);             //max deccel  steps/sec2 ( steps/sec2)
+    driver.D1(51200);               //mid deccel  steps/sec2 ( steps/sec2)
   }
 
   /*First motion*/{
@@ -311,7 +312,7 @@ void setup() {
     read_registers();               //Read all TMC5160 readable registers. Should read initial power presets or last configuration.
     Serial.println("");             //add a new line to separate information
     Serial.println(F("First motion register reading to see if parameters were set."));
-    delay(5000);                   //wait 30 seconds to allow for reading settings
+    delay(1000);                   //wait 30 seconds to allow for reading settings
 
     /*Perform zero crossing calibration. No idea what it does, I just do it act as a starting point.*/
     digitalWrite(drv_en, HIGH);     //disable the driver to clear short circuit fault
@@ -373,6 +374,14 @@ void setup() {
          */
         
         /* Temporary if statement to test functionality until library is updated */
+        if(sample == 1000){
+          read_DRV_STATUS_address();
+          read_motor_performance();
+          sample = 0;
+        }
+
+        if(driver.sg_result() == 0) driver.sgt(sgl+1);
+
           if( ( (driver.DRV_STATUS() & 0x00001000) == 1 || (driver.DRV_STATUS() & 0x00002000) == 1) && stall_flag == 0){   
           stall_flag =1;
           Serial.println(F("Motor short circuit stalled"));
@@ -384,21 +393,15 @@ void setup() {
           Serial.println(F("Motor short circuit stalled"));
           break;
         }*/
-        if(driver.XACTUAL() == (sample / motor_mm_per_microstep)){
-          Serial.print(F("Running RMS current ->"));
-          Serial.println(driver.rms_current(), DEC);
-          sample = (sample + 10);
-          Serial.print(F("Lower value means high mechanical load ->"));
-          Serial.println(driver.sg_result(), DEC);                                                            //display stallguard status bits, can be used to read motor temp or mechanical load
-          Serial.println(F(""));
-        }
-
         if( driver.TSTEP() > tstep_max ) tstep_max = driver.TSTEP();        //while motor is moving, measure tstep max step time              
         if( driver.TSTEP() < tstep_min ) tstep_min = driver.TSTEP();        //while motor is moving, measure tstep min step time
         
         //use pwm sum to determine best speed for auto tuning, pwm sum needs to be as low as possible
         //add skip step detection as well. exit autotune on skipped step
+        sample = sample + 1;
       }
+
+      
 
       Serial.print(F("Max tstep time recorded -> "));
       Serial.println(tstep_max);                                            //display measured max step time  
