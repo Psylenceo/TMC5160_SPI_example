@@ -1,8 +1,10 @@
-# TMC5160_SPI_example
+# TMC5160_SPI_example (Depreciated) (please see TMC5160_FULL_SPI_CMD_Example or individual function repos)
 
-Note: As of 7/11/2019, only use TMCStepper library Version 0.4.4. Lesser versions are missing register functions and cause the compiler to error out. Using version 0.4.5 causes the motor to oscillate badly. 
+NOTE: As of 7/24/2019 I am going to start a new properly organized repo for this example as well as making branched repos for just certain features. The reason for this is that as of v0.1.6, this code only has an initial move, just starting to work out issues with the autotuning and the code is already 1000 lines long maybe 800 if you remove all the comments, folding brackets, and spaces between groupings of code. Which would make this code be insanely long and overwhelming for someone just getting into coding. Not to mention my commits, and github flow is not optimal. As I've just been commiting everything to the main branch and releasing it even though I'm still editing code. 
 
-current version 0.1.5
+The plan is to make a new repo that is meant for the FULL SPI command structure, which will most likely evolve into a multi thousand line code, but there will be proper branching and merging along with commits and better tags. Also there will be secondary repos made that will essentially be the branches of the FULL SPI code, but will have the code required for that specific function.
+
+current version 0.1.6
 
 Arduino example walking through all the settings and order of operation to set settings and registers of a TMC5160 using teemuatlut's TMCStepper library.
 
