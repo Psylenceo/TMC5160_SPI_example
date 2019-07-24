@@ -276,8 +276,8 @@ void setup() {
     /* Inital register read */ {
       Serial.println("");                     //add a new line to separate information
       Serial.println(F("Initial drive start up register reading."));
-      read_altered_registers();                       //Read all TMC5160 readable registers. Should read initial power presets or last configuration.
-      delay(5000);                            //allow some reading time
+      read_registers();                       //Read all TMC5160 readable registers. Should read initial power presets or last configuration.
+      delay(10000);                            //allow some reading time
     }
 
     /* Reseting drive faults and re-enabling drive */ {
@@ -286,7 +286,9 @@ void setup() {
       digitalWrite(drv_en, LOW);              //re-enable drive, to start loading in parameters
       driver.toff(0);                         //attempt to clear ground faults on start-up
       driver.GSTAT(7);                        //clear gstat faults
-      read_altered_registers();
+      read_DRV_STATUS_address();
+      read_GSTAT_address();
+      delay(10000);
     }
 
     /* Set operation current limits */
@@ -298,6 +300,9 @@ void setup() {
       driver.s2vs_level(6);                 //lower values set drive to be very sensitive to low side voltage swings
       driver.diss2g(0);                     //driver to monitor for short to ground
       driver.s2g_level(6);                  //lower values set drive to be very sensitive to high side voltage swings
+
+      read_CHOPCONF_address();
+      delay(5000);
     }
 
     /* base GCONF settings for bare stepper driver operation*/    {
@@ -309,6 +314,9 @@ void setup() {
       driver.small_hysteresis(0);           //step hysteresis set 1/16
       driver.stop_enable(0);                //no stop motion inputs
       driver.direct_mode(0);                //normal driver operation
+
+      read_GCONF_address();
+      delay(5000);
     }
   }
 
@@ -316,11 +324,8 @@ void setup() {
     driver.tbl(2);                          //set blanking time to 24
     driver.toff(driv_toff);                 //pwm off time factor
     driver.pwm_freq(1);                     //pwm at 35.1kHz
-
-    /* need to verify if stall guard settings need set prior to initial move */
-    //driver.sgt(0);                          //stallguard sensitivity
-    //driver.sfilt(0);                        //stallguard filtering on
-    //driver.sg_stop(0);                      //stallguard event stop enabled
+    driver.pwm_autograd(0);
+    driver.pwm_autoscale(0);
   }
 
   /************************************************************
@@ -369,8 +374,8 @@ void setup() {
     /*Now that all the minimum settings to get a TMC5160 are set, well read all the registers again, to check settings*/
     Serial.println("");             //add a new line to separate information
     Serial.println(F("First motion register reading to see if parameters were set."));
-    read_altered_registers();               //Read all TMC5160 readable registers. Should read initial power presets or last configuration.
-    delay(1000);                   //wait 30 seconds to allow for reading settings
+    read_registers();               //Read all TMC5160 readable registers. Should read initial power presets or last configuration.
+    delay(10000);                   //wait 30 seconds to allow for reading settings
 
     /*Perform zero crossing calibration. No idea what it does, I just do it act as a starting point.*/
     digitalWrite(drv_en, HIGH);     //disable the driver to clear short circuit fault
@@ -378,13 +383,13 @@ void setup() {
     delay(1000);                    //wait 1 second for calibration
     driver.recalibrate(0);          //finish initial zero crossing calibration
     digitalWrite(drv_en, LOW);      //enable the driver
-    driver.GSTAT(0b111);            //clear gstat faults
+    driver.GSTAT(7);            //clear gstat faults
 
     /*Read all registers again see that GSTAT has cleared, and to make sure some of the other faults are cleared as well.*/
     Serial.println("");             //add a new line to separate information
     Serial.println(F("First motion register reading to see if pre motion faults were cleared."));
-    read_altered_registers();               //Read all TMC5160 readable registers. Should read initial power presets or last configuration.
-    delay(5000);                   //wait 30 seconds to allow for reading settings
+    read_registers();               //Read all TMC5160 readable registers. Should read initial power presets or last configuration.
+    delay(10000);                   //wait 30 seconds to allow for reading settings
 
     /*Now lets start the first actual move to see if everything worked, and to hear what the stepper sounds like.*/
     if (driver.position_reached() == 1) driver.XTARGET((100 / motor_mm_per_microstep));     //verify motor is at starting position, then move motor equivalent to 100mm
@@ -453,8 +458,17 @@ void setup() {
       driver.s2vs_level(short_stall);   //set the low side short circuit detection to be over sensitive to in an attempt act as a stallguard during stealth mode
     }
 
+    
+    driver.sgt(0);                          //stallguard sensitivity
+    driver.sfilt(0);                        //stallguard filtering on
+    driver.sg_stop(1);                      //stallguard event stop enabled
+
+    read_registers();
+    delay(10000);
+
     /* Initiate autotune */ {
       Serial.println(F("Starting stealth chop autotune"));
+      driver.pwm_autograd(1);
       driver.pwm_autoscale(1);                                                //automatic current scaling
       delay(360);                                                             //delay for 2 full step cycles to allow settling
     }
@@ -463,6 +477,7 @@ void setup() {
       cs = driver.cs_actual();                                                //store the value of cs
       run_current = driver.irun();                                            //store the value of irun
       driver.VMAX(6);                                                         //set drive to run motor at 6Hz to perform stage 1 autotune
+      driver.AMAX(6);
 
       while( (cs != run_current) && matched != 1) {                           //adjust the motor until cs = irun
         driver.XTARGET(2);                                                    //move motor 1 micro step
@@ -477,13 +492,21 @@ void setup() {
 
     Serial.println(F("Autotune stage 1 complete"));
 
+    read_PWM_SCALE_address();
+    read_PWM_AUTO_address();
+    read_motor_performance();
+    delay(10000);
+
+    
     /* Autotune stage 2 (AT#2) */ {
       while (autotune_optimization_flag == 0) {
+        driver.VMAX(6);                                                         //set drive to run motor at 6Hz to perform stage 1 autotune
+        driver.AMAX(6);
         Serial.println(F("Starting motion forward"));
         delay(5000);
         if (driver.position_reached() == 1) driver.XTARGET((200 / motor_mm_per_microstep));   //if motor in position command a 200 mm move
         stall_flag = 0;
-        sample = 10;                                                       //reset stall flag
+        sample = 0;                                                       //reset stall flag
         while (driver.position_reached() == 0) {
         /*****
          * softstop
@@ -494,12 +517,11 @@ void setup() {
          */
         
         /* Temporary if statement to test functionality until library is updated */
-        if(sample == 1000){
-          read_altered_registers();
+        if(sample == 100000){
+          read_PWM_AUTO_address();
+          read_motor_performance();
           sample = 0;
         }
-
-        if(driver.sg_result() == 0) driver.sgt(sgl+1);
 
         if( ( (driver.DRV_STATUS() & 0x00001000) == 1 || (driver.DRV_STATUS() & 0x00002000) == 1) && stall_flag == 0){   
           stall_flag =1;
@@ -507,7 +529,16 @@ void setup() {
           break;
         }
 
-        if(driver.)
+        if( (driver.status_sg() == 1 || driver.stallguard() == 1) ){
+          Serial.println(F("Stall guard fault"));
+          if(sgl == 63) {
+            Serial.println(F("stall guard setting maxxed, halting operation"));
+            while(1);
+          }
+          if(sgl > -64 && sgl < 64) sgl++;
+          driver.sgt(sgl);
+          read_RAMP_STAT_address();
+        }
         
         /*if( (driver.s2vsa() == 1 || driver.s2vsb() == 1) && stall_flag == 0){   
           stall_flag =1;
@@ -530,14 +561,14 @@ void setup() {
       Serial.println(tstep_min);
       Serial.println(F(""));                                            //display measured min step time
 
-      if( stall_flag ==1 ){
+      /*if( stall_flag ==1 ){
         digitalWrite(drv_en, HIGH);                                         //disable in between tests to allow reseting of physical position if need be. And to allow changing of settings.
         if(short_stall >= 4 && short_stall <= 15) driver.s2vs_level(short_stall+1);       //increase low side short sensitivity setting, until only stalls trigger flag
         Serial.println(F("Low side short circuit sensitivity -> "));
         Serial.println(short_stall);
         digitalWrite(drv_en, LOW);                                          //disable in between tests to allow reseting of physical position if need be. And to allow changing of settings.
         stall_flag = 0;                                                     //reset stall flag
-      }
+      }*/
       
       //add temp measuring during pause between up and down motions
       if (driver.position_reached() == 1) {
