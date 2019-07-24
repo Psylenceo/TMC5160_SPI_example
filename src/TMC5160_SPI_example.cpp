@@ -130,13 +130,55 @@ float  nominal_amps = ( ((motor_milliamps * motor_voltage) / supply_voltage) * 1
        driv_toff = ( 3/*really_small_number * drv_clock / 10(((1 / drv_chop_freq) * (drv_decay_percent / 100) * .5) * drv_clock - 12) / 32*/ ); //calculatethe toff of the motor, currently does not calculate value
 
 double sample,                              //value for when terminal samples values
-       step_tune_match;                      //counting number of steps during stage 1 autotune        
+       step_tune_match,                      //counting number of steps during stage 1 autotune
+       GCONF_value,
+       GCONF_temp_value,
+       IOIN_value,
+       IOIN_temp_value,
+       OFFSET_READ_value,
+       OFFSET_READ_temp_value,
+       XACTUAL_value,
+       XACTUAL_temp_value,
+       XTARGET_value,
+       XTARGET_temp_value;
 
 float pwm_sum_base,                           //base pwm sum value to be tested in autotune to find optimal set points
       pwm_sum_tune;                           //pwm sum value while in the loop for set point optimization
 
 uint32_t tstep_min = 1048575,                 //minimum tstep value to assist in velocity based mode change settings
-         tstep_max = 0;                       //max value while motor is running
+         tstep_max = 0,                       //max value while motor is running
+         SW_MODE_value,
+         SW_MODE_temp_value,
+         RAMP_STAT_value,
+         RAMP_STAT_temp_value,
+         XLATCH_value,
+         XLATCH_temp_value,
+         ENCMODE_value,
+         ENCMODE_temp_value,
+         TSTEP_value,
+         TSTEP_temp_value,
+         VACTUAL_value,
+         VACTUAL_temp_value,
+         XENC_value,
+         XENC_temp_value,
+         ENC_STATUS_value,
+         ENC_STATUS_temp_value,
+         ENC_LATCH_value,
+         ENC_LATCH_temp_value,
+         MSCNT_value,
+         MSCNT_temp_value,
+         MSCURACT_value,
+         MSCURACT_temp_value,
+         CHOPCONF_value,
+         CHOPCONF_temp_value,
+         DRV_STATUS_value,
+         DRV_STATUS_temp_value,
+         PWM_SCALE_value,
+         PWM_SCALE_temp_value,
+         PWM_AUTO_value,
+         PWM_AUTO_temp_value,
+         LOST_STEPS_value,
+         LOST_STEPS_temp_value;
 
 int autotune_optimized_up_cnt,                //variable to count how many times the up autotune has resulted in the optimal value of pwm sum
     autotune_optimized_dn_cnt,                //variable to count how many times the down autotune has resulted in optimal value of pwm sum
@@ -144,11 +186,16 @@ int autotune_optimized_up_cnt,                //variable to count how many times
     short_stall = 4,                          //variable for tuning short circuit detection stall detect in stealth mode
     sgl = 0,                                  //variable for tuning stall guard
     cs,                                       //variable used during cs = irun stage of autotune
-    run_current;                              //variable used during cs = irun stage of autotune
+    run_current,                              //variable used during cs = irun stage of autotune
+    GSTAT_value,
+    GSTAT_temp_value,
+    RAMP_MODE_value,
+    RAMP_MODE_temp_value;
 
 bool autotune_optimization_flag,              //this flag will go high once autotune optimization is complete or pwm_sum_tune is the lowest it can get for a given number auto tune loops
      stall_flag,                              //flag for when motor is stalled
-     matched;                                 //"flag" indicating that CS and IRun are equal during autotune start up
+     matched,                                 //"flag" indicating that CS and IRun are equal during autotune start up
+     first_scan_flag;                         //flag set after 1st scan of the altered register read
       
 
 /***********************************************************
@@ -201,6 +248,7 @@ void read_PWM_AUTO_address(void);                //prototype function to read on
 void read_LOST_STEP_address(void);               //prototype function to read only the specific register address from the TMC5160
 void read_DRV_STATUS_address(void);              //prototype function to read only the specific register address from the TMC5160
 void read_motor_performance(void);               //prototype
+void read_altered_registers(void);               //prototype to only display registers that have been altered or are reading different from scan to scan
 
 
 void setup() {
@@ -228,7 +276,7 @@ void setup() {
     /* Inital register read */ {
       Serial.println("");                     //add a new line to separate information
       Serial.println(F("Initial drive start up register reading."));
-      read_registers();                       //Read all TMC5160 readable registers. Should read initial power presets or last configuration.
+      read_altered_registers();                       //Read all TMC5160 readable registers. Should read initial power presets or last configuration.
       delay(5000);                            //allow some reading time
     }
 
@@ -238,8 +286,7 @@ void setup() {
       digitalWrite(drv_en, LOW);              //re-enable drive, to start loading in parameters
       driver.toff(0);                         //attempt to clear ground faults on start-up
       driver.GSTAT(7);                        //clear gstat faults
-      read_DRV_STATUS_address();              //read out DRiver status to verify ground faults re cleared
-      read_GSTAT_address();                   //read out GSTAT to verify its faults are cleared.
+      read_altered_registers();
     }
 
     /* Set operation current limits */
@@ -271,9 +318,9 @@ void setup() {
     driver.pwm_freq(1);                     //pwm at 35.1kHz
 
     /* need to verify if stall guard settings need set prior to initial move */
-    driver.sgt(0);                          //stallguard sensitivity
-    driver.sfilt(0);                        //stallguard filtering on
-    driver.sg_stop(0);                      //stallguard event stop enabled
+    //driver.sgt(0);                          //stallguard sensitivity
+    //driver.sfilt(0);                        //stallguard filtering on
+    //driver.sg_stop(0);                      //stallguard event stop enabled
   }
 
   /************************************************************
@@ -322,7 +369,7 @@ void setup() {
     /*Now that all the minimum settings to get a TMC5160 are set, well read all the registers again, to check settings*/
     Serial.println("");             //add a new line to separate information
     Serial.println(F("First motion register reading to see if parameters were set."));
-    read_registers();               //Read all TMC5160 readable registers. Should read initial power presets or last configuration.
+    read_altered_registers();               //Read all TMC5160 readable registers. Should read initial power presets or last configuration.
     delay(1000);                   //wait 30 seconds to allow for reading settings
 
     /*Perform zero crossing calibration. No idea what it does, I just do it act as a starting point.*/
@@ -336,7 +383,7 @@ void setup() {
     /*Read all registers again see that GSTAT has cleared, and to make sure some of the other faults are cleared as well.*/
     Serial.println("");             //add a new line to separate information
     Serial.println(F("First motion register reading to see if pre motion faults were cleared."));
-    read_registers();               //Read all TMC5160 readable registers. Should read initial power presets or last configuration.
+    read_altered_registers();               //Read all TMC5160 readable registers. Should read initial power presets or last configuration.
     delay(5000);                   //wait 30 seconds to allow for reading settings
 
     /*Now lets start the first actual move to see if everything worked, and to hear what the stepper sounds like.*/
@@ -433,6 +480,7 @@ void setup() {
     /* Autotune stage 2 (AT#2) */ {
       while (autotune_optimization_flag == 0) {
         Serial.println(F("Starting motion forward"));
+        delay(5000);
         if (driver.position_reached() == 1) driver.XTARGET((200 / motor_mm_per_microstep));   //if motor in position command a 200 mm move
         stall_flag = 0;
         sample = 10;                                                       //reset stall flag
@@ -447,18 +495,19 @@ void setup() {
         
         /* Temporary if statement to test functionality until library is updated */
         if(sample == 1000){
-          read_DRV_STATUS_address();
-          read_motor_performance();
+          read_altered_registers();
           sample = 0;
         }
 
         if(driver.sg_result() == 0) driver.sgt(sgl+1);
 
-          if( ( (driver.DRV_STATUS() & 0x00001000) == 1 || (driver.DRV_STATUS() & 0x00002000) == 1) && stall_flag == 0){   
+        if( ( (driver.DRV_STATUS() & 0x00001000) == 1 || (driver.DRV_STATUS() & 0x00002000) == 1) && stall_flag == 0){   
           stall_flag =1;
           Serial.println(F("Motor short circuit stalled"));
           break;
         }
+
+        if(driver.)
         
         /*if( (driver.s2vsa() == 1 || driver.s2vsb() == 1) && stall_flag == 0){   
           stall_flag =1;
@@ -1074,7 +1123,83 @@ void read_motor_performance(void){
 } //end of read performance
 //end of read performance
 
+void read_altered_registers(void){
+  GCONF_value = driver.GCONF();
+  GSTAT_value = driver.GSTAT();
+  IOIN_value = driver.IOIN();
+  OFFSET_READ_value = driver.OFFSET_READ();
+  TSTEP_value = driver.TSTEP();
+  RAMP_MODE_value = driver.RAMPMODE();
+  XACTUAL_value = driver.XACTUAL();
+  VACTUAL_value = driver.VACTUAL();
+  XTARGET_value = driver.XTARGET();
+  SW_MODE_value = driver.SW_MODE();
+  RAMP_STAT_value = driver.RAMP_STAT();
+  XLATCH_value = driver.XLATCH();
+  ENCMODE_value = driver.ENCMODE();
+  XENC_value = driver.X_ENC();
+  ENC_STATUS_value = driver.ENC_STATUS();
+  ENC_LATCH_value = driver.ENC_LATCH();
+  MSCNT_value = driver.MSCNT();
+  MSCURACT_value = driver.MSCURACT();
+  CHOPCONF_value = driver.CHOPCONF();
+  DRV_STATUS_value = driver.DRV_STATUS();
+  PWM_SCALE_value = driver.PWM_SCALE();
+  PWM_AUTO_value = driver.PWM_AUTO();
+  LOST_STEPS_value = driver.LOST_STEPS();
 
+  if(GCONF_value != GCONF_temp_value) read_GCONF_address();
+  if(GSTAT_value != GSTAT_temp_value) read_GSTAT_address();
+  if(IOIN_value != IOIN_temp_value) read_IOIN_address();
+  if(OFFSET_READ_value != OFFSET_READ_temp_value) read_OFFSET_READ_address();
+  if(TSTEP_value != TSTEP_temp_value) read_TSTEP_address();
+  if(RAMP_MODE_value != RAMP_MODE_temp_value) read_RAMP_MODE_address();
+  if(XACTUAL_value != XACTUAL_temp_value) read_XACTUAL_address();
+  if(VACTUAL_value != VACTUAL_temp_value) read_VACTUAL_address();
+  if(XTARGET_value != XTARGET_temp_value) read_XTARGET_address();
+  if(SW_MODE_value != SW_MODE_temp_value) read_SW_MODE_address();
+  if(RAMP_STAT_value != RAMP_STAT_temp_value) read_RAMP_STAT_address();
+  if(XLATCH_value != XLATCH_temp_value) read_XLATCH_address();
+  if(ENCMODE_value != ENCMODE_temp_value) read_ENCMODE_address();
+  if(XENC_value != XENC_temp_value) read_X_ENC_address();
+  if(ENC_STATUS_value != ENC_STATUS_temp_value) read_ENC_STATUS_address();
+  if(ENC_LATCH_value != ENC_LATCH_temp_value) read_ENC_LATCH_address();
+  if(MSCNT_value != MSCNT_temp_value) read_MSCNT_address();
+  if(MSCURACT_value != MSCURACT_temp_value) {
+    read_MSCURACT_A_address();
+    read_MSCURACT_B_address();
+  }
+  if(CHOPCONF_value != CHOPCONF_temp_value) read_CHOPCONF_address();
+  if(DRV_STATUS_value != DRV_STATUS_temp_value) read_DRV_STATUS_address();
+  if(PWM_SCALE_value != PWM_SCALE_temp_value) read_PWM_SCALE_address();
+  if(PWM_AUTO_value != PWM_AUTO_temp_value) read_PWM_AUTO_address();
+  if(LOST_STEPS_value != LOST_STEPS_temp_value) read_LOST_STEP_address();
+
+  GCONF_temp_value = GCONF_value;
+  GSTAT_temp_value = GSTAT_value;
+  IOIN_temp_value = IOIN_value;
+  OFFSET_READ_temp_value = OFFSET_READ_value;
+  TSTEP_temp_value = TSTEP_value;
+  RAMP_MODE_temp_value = RAMP_MODE_value;
+  XACTUAL_temp_value = XACTUAL_value;
+  VACTUAL_temp_value = VACTUAL_value;
+  XTARGET_temp_value = XTARGET_value;
+  SW_MODE_temp_value = SW_MODE_value;
+  RAMP_STAT_temp_value = RAMP_STAT_value;
+  XLATCH_temp_value = XLATCH_value;
+  ENCMODE_temp_value = ENCMODE_value;
+  XENC_temp_value = XENC_value;
+  ENC_STATUS_temp_value = ENC_STATUS_value;
+  ENC_LATCH_temp_value = ENC_LATCH_value;
+  MSCNT_temp_value = MSCNT_value;
+  MSCURACT_temp_value = MSCURACT_value;
+  CHOPCONF_temp_value = CHOPCONF_value;
+  DRV_STATUS_temp_value = DRV_STATUS_value;
+  PWM_SCALE_temp_value = PWM_SCALE_value;
+  PWM_AUTO_temp_value = PWM_AUTO_value;
+  LOST_STEPS_temp_value = LOST_STEPS_value;
+} //end altered registers
+//end altered registers
 
 
 //end of program
